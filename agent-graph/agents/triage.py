@@ -1,5 +1,5 @@
 import re
-
+from state import TaintedValue
 from llm import llm
 
 SYSTEM_PROMPT = """
@@ -25,7 +25,8 @@ Category:
 
 def triage(state):
 
-    response = llm.invoke(SYSTEM_PROMPT + "\n\nEMAIL\n" + state["email"])
+    email_value = state["email"].value
+    response = llm.invoke(SYSTEM_PROMPT + "\n\nEMAIL\n" + email_value)
 
     text = response.content
     if isinstance(text, list):
@@ -66,7 +67,7 @@ def triage(state):
                 pending_field = "category"
             continue
 
-    email_text = state["email"]
+    email_text = email_value
     email_lower = email_text.lower()
 
     if summary and any(
@@ -82,4 +83,7 @@ def triage(state):
         if customer_match and customer_match.group(1) not in summary:
             summary = f"{summary} Customer {customer_match.group(1)}."
 
-    return {"summary": summary, "category": category}
+    return {
+        "summary": TaintedValue(value=summary, integrity=state["email"].integrity),
+        "category": TaintedValue(value=category, integrity=state["email"].integrity),
+    }

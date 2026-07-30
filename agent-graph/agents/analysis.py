@@ -1,6 +1,6 @@
 import re
-
 from llm import llm
+from state import TaintedValue
 
 SYSTEM_PROMPT = """
 You are an AI assistant.
@@ -28,7 +28,8 @@ def analysis(state):
     print("-- ANALYSIS AGENT --")
     print(state)
 
-    response = llm.invoke(SYSTEM_PROMPT + "\n\nSUMMARY\n" + state["summary"])
+    summary_value = state["summary"].value
+    response = llm.invoke(SYSTEM_PROMPT + "\n\nSUMMARY\n" + summary_value)
 
     operation = ""
     customer = ""
@@ -79,8 +80,11 @@ def analysis(state):
             operation = "update_customer"
 
     if not customer:
-        summary_match = re.search(r"\b(\d{3,})\b", state["summary"])
+        summary_match = re.search(r"\b(\d{3,})\b", summary_value)
         if summary_match:
             customer = summary_match.group(1)
 
-    return {"crm_operation": operation, "customer_id": customer}
+    return {
+        "crm_operation": TaintedValue(operation, state["summary"].integrity),
+        "customer_id": TaintedValue(customer, state["summary"].integrity),
+    }
