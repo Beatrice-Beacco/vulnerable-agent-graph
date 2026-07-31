@@ -84,6 +84,14 @@ def triage(state):
             summary = f"{summary} Customer {customer_match.group(1)}."
 
     return {
-        "summary": TaintedValue(value=summary, integrity=state["email"].integrity),
-        "category": TaintedValue(value=category, integrity=state["email"].integrity),
+        "summary": TaintedValue(
+            value=summary,
+            integrity=state["email"].integrity,
+            source=state["email"].source,
+        ),
+        "category": TaintedValue(
+            value=category,
+            integrity=state["email"].integrity,
+            source=state["email"].source,
+        ),
     }

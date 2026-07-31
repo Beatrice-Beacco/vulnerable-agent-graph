@@ -14,22 +14,41 @@ class Integrity(Enum):
 class TaintedValue:
     value: str
     integrity: Integrity
+    source: str = "unknown"
+
+    def is_trusted(self) -> bool:
+        return self.integrity == Integrity.TRUSTED
+
+
+def taint_policy(integrity_left: Integrity, integrity_right: Integrity) -> Integrity:
+    if integrity_left == Integrity.UNTRUSTED or integrity_right == Integrity.UNTRUSTED:
+        return Integrity.UNTRUSTED
+    return Integrity.TRUSTED
 
 
 def merge_tainted(left: TaintedValue, right: TaintedValue):
+    merged_value = right.value
+    if left.value and right.value:
+        merged_value = f"{left.value}\n{right.value}"
+    elif left.value:
+        merged_value = left.value
+
+    merged_source = right.source
+    if left.source and right.source:
+        merged_source = f"{left.source}\n{right.source}"
+    elif left.source:
+        merged_source = left.source
+
     return TaintedValue(
-        value=f"{left.value}\n{right.value}",
-        integrity=(
-            Integrity.UNTRUSTED
-            if Integrity.UNTRUSTED in (left.integrity, right.integrity)
-            else Integrity.TRUSTED
-        ),
+        value=merged_value,
+        integrity=taint_policy(left.integrity, right.integrity),
+        source=merged_source,
     )
 
 
 class GraphState(TypedDict):
     email: TaintedValue
     summary: Annotated[TaintedValue, merge_tainted]
-    category: TaintedValue
-    crm_operation: TaintedValue
-    customer_id: TaintedValue
+    category: Annotated[TaintedValue, merge_tainted]
+    crm_operation: Annotated[TaintedValue, merge_tainted]
+    customer_id: Annotated[TaintedValue, merge_tainted]

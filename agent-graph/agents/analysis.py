@@ -79,12 +79,19 @@ def analysis(state):
         elif "update_customer" in response_lower:
             operation = "update_customer"
 
+    operation = operation.strip().strip('"').strip("'")
+    customer = customer.strip().strip('"').strip("'")
+
     if not customer:
         summary_match = re.search(r"\b(\d{3,})\b", summary_value)
         if summary_match:
             customer = summary_match.group(1)
 
     return {
-        "crm_operation": TaintedValue(operation, state["summary"].integrity),
-        "customer_id": TaintedValue(customer, state["summary"].integrity),
+        "crm_operation": TaintedValue(
+            operation, state["summary"].integrity, source=state["summary"].source
+        ),
+        "customer_id": TaintedValue(
+            customer, state["summary"].integrity, source=state["summary"].source
+        ),
     }
