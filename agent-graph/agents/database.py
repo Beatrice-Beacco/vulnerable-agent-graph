@@ -30,3 +30,5 @@ def database(state):
 
     if operation_value == "update_customer":
         write_customer(customer_id=customer_value, status="updated")
+
+    return {}

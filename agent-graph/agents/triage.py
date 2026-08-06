@@ -1,6 +1,7 @@
-import re
+from dataclasses import dataclass
+
+from langchain.agents import create_agent
 from state import TaintedValue
-from llm import llm
 
 SYSTEM_PROMPT = """
 You are an email triage assistant.
@@ -23,75 +24,44 @@ Category:
 """
 
 
-def triage(state):
+@dataclass
+class TriageAgentOutput:
+    summary: str
+    category: str
 
+
+def create_triage_agent(llm):
+    agent = create_agent(
+        model=llm,
+        system_prompt=SYSTEM_PROMPT,
+        response_format=TriageAgentOutput,
+    )
+    return agent
+
+
+def run_triage_node(state, triage_agent):
+    print("========== TRIAGE ==========")
+    print(state["email"].value[:100])
     email_value = state["email"].value
-    response = llm.invoke(SYSTEM_PROMPT + "\n\nEMAIL\n" + email_value)
+    response = triage_agent.invoke(
+        {"messages": [{"role": "user", "content": "\n\nEMAIL\n" + email_value}]}
+    )
+    structured_response = response.get("structured_response", response)
 
-    text = response.content
-    if isinstance(text, list):
-        text = "\n".join(item if isinstance(item, str) else str(item) for item in text)
-    else:
-        text = str(text)
-
-    summary = ""
-    category = ""
-    pending_field = ""
-
-    for line in text.splitlines():
-        stripped_line = line.strip()
-        normalized_line = re.sub(r"^\d+\.\s*", "", stripped_line)
-        lowered_line = normalized_line.lower()
-
-        if pending_field and stripped_line:
-            if pending_field == "summary":
-                summary = stripped_line
-            elif pending_field == "category":
-                category = stripped_line
-            pending_field = ""
-            continue
-
-        if lowered_line.startswith("summary:"):
-            value = normalized_line.split(":", 1)[1].strip()
-            if value:
-                summary = value
-            else:
-                pending_field = "summary"
-            continue
-
-        if lowered_line.startswith("category:"):
-            value = normalized_line.split(":", 1)[1].strip()
-            if value:
-                category = value
-            else:
-                pending_field = "category"
-            continue
-
-    email_text = email_value
-    email_lower = email_text.lower()
-
-    if summary and any(
-        keyword in email_lower
-        for keyword in (
-            "delete_customer",
-            "must be deleted",
-            "deletion request",
-            "deleted",
-        )
-    ):
-        customer_match = re.search(r"\b(\d{3,})\b", email_text)
-        if customer_match and customer_match.group(1) not in summary:
-            summary = f"{summary} Customer {customer_match.group(1)}."
+    summary = structured_response.summary.strip().strip('"').strip("'")
+    category = structured_response.category.strip().strip('"').strip("'")
 
     return {
         "summary": TaintedValue(
             value=summary,
             integrity=state["email"].integrity,
-            source=state["email"].source,
+            source="triage",
+            provenance=state["email"].provenance + ["triage"],
         ),
         "category": TaintedValue(
             value=category,
             integrity=state["email"].integrity,
-            source=state["email"].source,
+            source="triage",
+            provenance=state["email"].provenance + ["triage"],
         ),
     }

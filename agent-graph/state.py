@@ -15,6 +15,7 @@ class TaintedValue:
     value: str
     integrity: Integrity
     source: str = "unknown"
+    provenance: str = "unknown"
 
     def is_trusted(self) -> bool:
         return self.integrity == Integrity.TRUSTED
@@ -44,6 +45,20 @@ def merge_tainted(left: TaintedValue, right: TaintedValue):
         integrity=taint_policy(left.integrity, right.integrity),
         source=merged_source,
     )
+
+
+def join_integrity(*labels: Integrity) -> Integrity:
+    """
+    Join operator (⊔) of the integrity lattice.
+
+    Trusted ⊔ Trusted = Trusted
+    Otherwise = Untrusted
+    """
+
+    if all(label == Integrity.TRUSTED for label in labels):
+        return Integrity.TRUSTED
+
+    return Integrity.UNTRUSTED
 
 
 class GraphState(TypedDict):
