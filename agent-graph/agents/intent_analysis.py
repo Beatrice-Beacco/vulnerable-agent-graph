@@ -35,7 +35,6 @@ def create_intent_analysis_agent(llm):
 
 def run_intent_analysis_agent(state, intent_analysis_agent):
     print("-- INTENT ANALYSIS AGENT --")
-    print(state)
 
     summary_value = state["summary"].value
     response = intent_analysis_agent.invoke(

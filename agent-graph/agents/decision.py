@@ -38,7 +38,6 @@ def create_decision_agent(llm):
 
 def run_decision_node(state, decision_agent):
     print("-- DECISION AGENT --")
-    print(state)
 
     summary_value = state["summary"].value
     response = decision_agent.invoke(

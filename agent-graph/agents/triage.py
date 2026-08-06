@@ -41,7 +41,7 @@ def create_triage_agent(llm):
 
 def run_triage_node(state, triage_agent):
     print("========== TRIAGE ==========")
-    print(state["email"].value[:100])
+
     email_value = state["email"].value
     response = triage_agent.invoke(
         {"messages": [{"role": "user", "content": "\n\nEMAIL\n" + email_value}]}

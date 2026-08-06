@@ -15,6 +15,9 @@ state: GraphState = {
     ),
     "summary": TaintedValue(value="", integrity=Integrity.TRUSTED, source="unknown"),
     "category": TaintedValue(value="", integrity=Integrity.TRUSTED, source="unknown"),
+    "customer_request": TaintedValue(
+        value="", integrity=Integrity.TRUSTED, source="unknown"
+    ),
     "crm_operation": TaintedValue(
         value="", integrity=Integrity.TRUSTED, source="unknown"
     ),

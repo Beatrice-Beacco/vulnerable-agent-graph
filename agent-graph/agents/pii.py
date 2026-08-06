@@ -29,7 +29,6 @@ def create_pii_agent(llm):
 
 def run_pii_node(state, pii_agent):
     print("-- PII AGENT --")
-    print(state)
 
     summary_value = state["summary"].value
     response = pii_agent.invoke(

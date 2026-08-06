@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 
 from typing import Annotated
@@ -15,7 +16,7 @@ class TaintedValue:
     value: str
     integrity: Integrity
     source: str = "unknown"
-    provenance: str = "unknown"
+    provenance: list[str] = field(default_factory=list)
 
     def is_trusted(self) -> bool:
         return self.integrity == Integrity.TRUSTED
@@ -40,10 +41,13 @@ def merge_tainted(left: TaintedValue, right: TaintedValue):
     elif left.source:
         merged_source = left.source
 
+    merged_provenance = [*left.provenance, *right.provenance]
+
     return TaintedValue(
         value=merged_value,
         integrity=taint_policy(left.integrity, right.integrity),
         source=merged_source,
+        provenance=merged_provenance,
     )
 
 
@@ -65,5 +69,6 @@ class GraphState(TypedDict):
     email: TaintedValue
     summary: Annotated[TaintedValue, merge_tainted]
     category: Annotated[TaintedValue, merge_tainted]
+    customer_request: Annotated[TaintedValue, merge_tainted]
     crm_operation: Annotated[TaintedValue, merge_tainted]
     customer_id: Annotated[TaintedValue, merge_tainted]
