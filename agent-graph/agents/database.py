@@ -17,8 +17,8 @@ Rules:
 
 Available operations:
 
-delete_customer
-update_customer
+delete_customer use the delete_customer tool.
+update_customer use the write_customer tool.
 
 """
 
@@ -51,8 +51,8 @@ def run_database_node(state, database_agent):
                     """,
                 }
             ],
-            "context": {"operation": operation},
-        }
+        },
+        context={"operation": operation, "customer": customer},
     )
 
     print("Database agent result:", result)

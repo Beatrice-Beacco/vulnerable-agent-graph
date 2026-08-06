@@ -12,16 +12,16 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
     def wrap_tool_call(self, request, handler):
 
         print("\nCEDAR AUTHORIZATION MIDDLEWARE")
-        print(f"Request: {request}")
-        print(f"Tool: {request.tool_call}")
-        print(f"Args: {request.tool_call['args']}")
 
         tool_call = request.tool_call
 
         tool_name = tool_call["name"]
+        security = request.runtime.context
+        print(f"Security context: {security}")
+        print(f"State: {request}")
 
         allowed = self.monitor.check_tool(
-            agent="DatabaseAgent", tool=tool_name, operation=tool_name  # operation,
+            agent="DatabaseAgent", tool=tool_name, operation=security  # type: ignore
         )
 
         if not allowed:

@@ -1,7 +1,8 @@
+from typing import Dict
+
 from cedarpy import is_authorized
 from .schema import POLICIES, ENTITIES
-from security.context import SecurityContext
-from state import TaintedValue
+from state import TaintedValue, join_integrity
 
 
 class ReferenceMonitor:
@@ -19,37 +20,35 @@ class ReferenceMonitor:
 
         return True
 
-    def check_tool(self, agent, tool, operation):
+    def check_tool(self, agent, tool, operation: Dict[str, TaintedValue]):
 
-        response = self.authorize(agent, operation, operation.integrity)
+        integrity = self.calculate_integrity(operation)
+
+        response = self.authorize(agent, tool, {"integrity": integrity})
 
         print("CEDAR allow:", response)
 
         return response
 
-    def authorize(self, agent, operation, data):
+    def authorize(self, agent, tool, data):
 
         request = {
             "principal": f'Agent::"{agent}"',
-            "action": f'Action::"{operation.value}"',
-            "resource": 'Tool::"CRMDatabase"',
-            "context": {"data": {"integrity": data.integrity.value}},
+            "action": f'Action::"{tool}"',
+            "resource": f'Tool::"{tool}"',
+            "context": {"data": {"integrity": data["integrity"]}},
         }
 
         response = is_authorized(request, POLICIES, ENTITIES)
 
         return response["decision"] == "allow"
 
-    def calculate_integrity(self, state):
+    def calculate_integrity(self, security_context):
 
-        from state import join_integrity
+        values = [
+            value
+            for value in security_context.values()
+            if isinstance(value, TaintedValue)
+        ]
 
-        labels = []
-
-        for _, value in state.items():
-
-            if hasattr(value, "integrity"):
-
-                labels.append(value.integrity)
-
-        return join_integrity(*labels)
+        return join_integrity(*(value.integrity for value in values))
