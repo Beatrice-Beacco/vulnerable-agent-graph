@@ -2,7 +2,7 @@ from langchain.agents import create_agent
 
 from tools.crm import write_customer
 from tools.crm import delete_customer
-from security.middleware import CedarAuthorizationMiddleware
+from security.authorization_middleware import CedarAuthorizationMiddleware
 
 SYSTEM_PROMPT = """
 You are a CRM execution agent.
