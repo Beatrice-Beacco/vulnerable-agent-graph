@@ -34,7 +34,7 @@ If you do not already have Ollama installed, install it from https://ollama.com/
 Then pull the model used by the example:
 
 ```bash
-ollama pull llama3.2:1b
+ollama pull qwen3:8b
 ```
 
 Start the Ollama service in a separate terminal:
