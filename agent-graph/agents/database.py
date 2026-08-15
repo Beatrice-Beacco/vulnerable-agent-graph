@@ -40,21 +40,25 @@ def run_database_node(state, database_agent):
     operation = state["crm_operation"]
     customer = state["customer_id"]
 
-    result = database_agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": f"""
-                    Operation: {operation.value}
-                    Customer: {customer.value}
-                    """,
-                }
-            ],
-        },
-        context={"operation": operation, "customer": customer},
-    )
+    try:
+        result = database_agent.invoke(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": f"""
+                        Operation: {operation.value}
+                        Customer: {customer.value}
+                        """,
+                    }
+                ],
+            },
+            context={"operation": operation, "customer": customer},
+        )
+    except PermissionError as exc:
+        print("DATABASE AUTHORIZATION BLOCKED:", exc)
+        return {"database_status": "blocked"}
 
     print("Database agent result:", result)
 
-    return {}
+    return {"database_status": "executed"}

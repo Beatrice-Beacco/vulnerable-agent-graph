@@ -5,6 +5,12 @@ from .schema import POLICIES, ENTITIES
 from state import TaintedValue, join_integrity
 
 
+def _normalize_integrity(value):
+    if hasattr(value, "name"):
+        return value.name.title()
+    return str(value)
+
+
 class ReferenceMonitor:
     policies = POLICIES
     entities = ENTITIES
@@ -34,15 +40,19 @@ class ReferenceMonitor:
 
     def authorize(self, agent, tool, data):
 
+        integrity = _normalize_integrity(data["integrity"])
+        provenance = data["provenance"]
+
         request = {
             "principal": f'Agent::"{agent}"',
             "action": f'Action::"{tool}"',
             "resource": f'Tool::"{tool}"',
             "context": {
+                "integrity": integrity,
                 "data": {
-                    "integrity": data["integrity"],
-                    "provenance": data["provenance"],
-                }
+                    "integrity": integrity,
+                    "provenance": provenance,
+                },
             },
         }
 
