@@ -23,8 +23,10 @@ class ReferenceMonitor:
     def check_tool(self, agent, tool, operation: Dict[str, TaintedValue]):
 
         integrity = self.calculate_integrity(operation)
-
-        response = self.authorize(agent, tool, {"integrity": integrity})
+        provenance = self.calculate_provenance(operation)
+        response = self.authorize(
+            agent, tool, {"integrity": integrity, "provenance": provenance}
+        )
 
         print("CEDAR allow:", response)
 
@@ -36,7 +38,12 @@ class ReferenceMonitor:
             "principal": f'Agent::"{agent}"',
             "action": f'Action::"{tool}"',
             "resource": f'Tool::"{tool}"',
-            "context": {"data": {"integrity": data["integrity"]}},
+            "context": {
+                "data": {
+                    "integrity": data["integrity"],
+                    "provenance": data["provenance"],
+                }
+            },
         }
 
         response = is_authorized(request, POLICIES, ENTITIES)
@@ -52,3 +59,17 @@ class ReferenceMonitor:
         ]
 
         return join_integrity(*(value.integrity for value in values))
+
+    def calculate_provenance(self, security_context):
+
+        values = [
+            value
+            for value in security_context.values()
+            if isinstance(value, TaintedValue)
+        ]
+
+        provenance = []
+        for value in values:
+            provenance.extend(value.provenance)
+
+        return provenance
