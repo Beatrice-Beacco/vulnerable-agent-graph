@@ -3,6 +3,7 @@ from langchain.agents import create_agent
 from tools.crm import write_customer
 from tools.crm import delete_customer
 from security.authorization_middleware import CedarAuthorizationMiddleware
+from security.security_context import build_security_context
 
 SYSTEM_PROMPT = """
 You are a CRM execution agent.
@@ -40,6 +41,14 @@ def run_database_node(state, database_agent):
     operation = state["crm_operation"]
     customer = state["customer_id"]
 
+    context = build_security_context(
+        {
+            "operation": operation,
+            "customer": customer,
+        },
+        origin="database_node",
+    )
+
     try:
         result = database_agent.invoke(
             {
@@ -53,7 +62,7 @@ def run_database_node(state, database_agent):
                     }
                 ],
             },
-            context={"operation": operation, "customer": customer},
+            context=context,
         )
     except PermissionError as exc:
         print("DATABASE AUTHORIZATION BLOCKED:", exc)

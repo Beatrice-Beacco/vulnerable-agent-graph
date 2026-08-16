@@ -1,5 +1,8 @@
+from collections.abc import Mapping
+
 from engine.engine import ReferenceMonitor
 from langchain.agents.middleware import AgentMiddleware
+from security.security_context import SecurityContext, build_security_context
 
 monitor = ReferenceMonitor()
 
@@ -17,13 +20,35 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
         tool_call = request.tool_call
 
         tool_name = tool_call["name"]
-        security = request.runtime.context
+        args = tool_call.get("args", {}) or {}
+
+        security_context = self._resolve_security_context(request)
 
         allowed = self.monitor.check_tool(
-            agent=self.agent_id, tool=tool_name, operation=security  # type: ignore
+            agent=self.agent_id,
+            tool=tool_name,
+            context=security_context,
+            args=args,
         )
 
         if not allowed:
             raise PermissionError(f"Blocked tool call: {tool_name}")
 
         return handler(request)
+
+    def _resolve_security_context(self, request) -> SecurityContext:
+        runtime_context = getattr(request.runtime, "context", None)
+
+        if isinstance(runtime_context, SecurityContext):
+            return runtime_context
+
+        if isinstance(runtime_context, Mapping):
+            return build_security_context(
+                runtime_context,
+                origin="agent_runtime_context",
+            )
+
+        return build_security_context(
+            {},
+            origin="missing_context",
+        )

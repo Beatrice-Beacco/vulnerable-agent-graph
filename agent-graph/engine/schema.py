@@ -5,7 +5,7 @@ POLICIES = """
         resource
     )
     when {
-        context.data.integrity < 1
+        context.data.integrity >= context.maxTaint
     };
 
     permit (
@@ -15,7 +15,7 @@ POLICIES = """
     )
 
     when {
-        context.data.integrity == 1
+        context.data.integrity <= context.maxTaint
     };
     """
 
