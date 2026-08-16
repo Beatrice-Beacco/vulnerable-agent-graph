@@ -28,7 +28,7 @@ def create_database_agent(llm):
         model=llm,
         system_prompt=SYSTEM_PROMPT,
         tools=[write_customer, delete_customer],
-        middleware=[CedarAuthorizationMiddleware()],
+        middleware=[CedarAuthorizationMiddleware(agent_id="DatabaseAgent")],
     )
     return agent
 

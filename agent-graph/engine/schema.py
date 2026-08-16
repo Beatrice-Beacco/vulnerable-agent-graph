@@ -5,7 +5,7 @@ POLICIES = """
         resource
     )
     when {
-        context.data.integrity == "Untrusted"
+        context.data.integrity < 1
     };
 
     permit (
@@ -15,7 +15,7 @@ POLICIES = """
     )
 
     when {
-        context.integrity == "Trusted"
+        context.data.integrity == 1
     };
     """
 
@@ -31,7 +31,12 @@ ENTITIES = [
         "parents": [],
     },
     {
-        "uid": {"__entity": {"type": "Tool", "id": "CRMDatabase"}},
+        "uid": {"__entity": {"type": "Tool", "id": "delete_customer"}},
+        "attrs": {"critical": True},
+        "parents": [],
+    },
+    {
+        "uid": {"__entity": {"type": "Tool", "id": "write_customer"}},
         "attrs": {"critical": True},
         "parents": [],
     },
@@ -39,9 +44,5 @@ ENTITIES = [
         "uid": {"__entity": {"type": "Data", "id": "EmailSummary"}},
         "attrs": {"integrity": "untrusted", "source": "email"},
         "parents": [],
-    },
-    {"uid": {"__entity": {"type": "Action", "id": "update_customer"}}},
-    {
-        "uid": {"__entity": {"type": "Action", "id": "delete_customer"}},
     },
 ]

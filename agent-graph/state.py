@@ -6,9 +6,12 @@ from typing import Annotated
 from typing import TypedDict
 
 
-class Integrity(Enum):
-    TRUSTED = "trusted"
-    UNTRUSTED = "untrusted"
+from enum import IntEnum
+
+
+class Integrity(IntEnum):
+    TRUSTED = 0
+    UNTRUSTED = 1
 
 
 @dataclass

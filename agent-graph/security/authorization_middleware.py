@@ -6,8 +6,9 @@ monitor = ReferenceMonitor()
 
 class CedarAuthorizationMiddleware(AgentMiddleware):
 
-    def __init__(self):
+    def __init__(self, agent_id: str):
         self.monitor = monitor
+        self.agent_id = agent_id
 
     def wrap_tool_call(self, request, handler):
 
@@ -17,11 +18,9 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
 
         tool_name = tool_call["name"]
         security = request.runtime.context
-        print(f"Security context: {security}")
-        print(f"State: {request}")
 
         allowed = self.monitor.check_tool(
-            agent="DatabaseAgent", tool=tool_name, operation=security  # type: ignore
+            agent=self.agent_id, tool=tool_name, operation=security  # type: ignore
         )
 
         if not allowed:

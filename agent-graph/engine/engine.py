@@ -48,7 +48,6 @@ class ReferenceMonitor:
             "action": f'Action::"{tool}"',
             "resource": f'Tool::"{tool}"',
             "context": {
-                "integrity": integrity,
                 "data": {
                     "integrity": integrity,
                     "provenance": provenance,
