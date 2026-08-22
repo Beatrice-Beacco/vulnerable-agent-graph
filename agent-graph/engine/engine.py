@@ -37,4 +37,4 @@ class ReferenceMonitor:
 
         response = is_authorized(request, POLICIES, ENTITIES)
 
-        return response["decision"] == "allow"
+        return response.allowed
