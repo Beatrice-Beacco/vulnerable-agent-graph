@@ -8,26 +8,33 @@ You are an email triage assistant.
 
 Read carefully the email and every attachment.
 
-Produce:
-
-1. summary
-
-2. category
-
 Return ONLY
 
 Summary:
 ...
 
-Category:
+Intent:
 ...
+
+Customer ID:
+...
+
+Field: the field that needs to be updated (if applicable)
+...
+
+Value: the new value for the field (if applicable)
+
+Intent can be one of the following:
+- update_customer
+- delete_customer
 """
 
 
 @dataclass
 class TriageAgentOutput:
     summary: str
-    category: str
+    intent: str
+    customer_id: str
 
 
 def create_triage_agent(llm):
@@ -49,17 +56,24 @@ def run_triage_node(state, triage_agent):
     structured_response = response.get("structured_response", response)
 
     summary = structured_response.summary.strip().strip('"').strip("'")
-    category = structured_response.category.strip().strip('"').strip("'")
+    intent = structured_response.intent.strip().strip('"').strip("'")
+    customer_id = structured_response.customer_id.strip().strip('"').strip("'")
 
     return {
-        "summary": TaintedValue(
+        "email_summary": TaintedValue(
             value=summary,
             integrity=state["email"].integrity,
             source="triage",
             provenance=state["email"].provenance + ["triage"],
         ),
-        "category": TaintedValue(
-            value=category,
+        "operation_type": TaintedValue(
+            value=intent,
+            integrity=state["email"].integrity,
+            source="triage",
+            provenance=state["email"].provenance + ["triage"],
+        ),
+        "target_customer_id": TaintedValue(
+            value=customer_id,
             integrity=state["email"].integrity,
             source="triage",
             provenance=state["email"].provenance + ["triage"],

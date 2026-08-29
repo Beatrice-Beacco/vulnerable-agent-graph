@@ -18,6 +18,7 @@ class ReferenceMonitor:
     ):
 
         cedar_context = context.to_cedar_context()
+        print("CEDAR context:", cedar_context)
         response = self.authorize(agent, tool, cedar_context)
 
         print("CEDAR allow:", response)
@@ -34,6 +35,11 @@ class ReferenceMonitor:
                 "data": data,
             },
         }
+
+        # DEBUG: print types
+        print(f"integrity type: {type(data['integrity'])}, value: {data['integrity']}")
+        print(f"maxTaint type:  {type(data['maxTaint'])}, value: {data['maxTaint']}")
+        print(f"Full request:   {request}")
 
         response = is_authorized(request, POLICIES, ENTITIES)
 

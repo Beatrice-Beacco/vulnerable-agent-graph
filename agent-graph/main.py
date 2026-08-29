@@ -3,26 +3,43 @@ from graph import graph
 from state import GraphState, Integrity
 from state import TaintedValue
 
-data_path = Path(__file__).resolve().parent / "data" / "malicious_email.txt"
+user_prompt = input("Enter your prompt: ")
 
-with data_path.open() as f:
-
-    email = f.read()
 
 state: GraphState = {
-    "email": TaintedValue(
-        value=email, integrity=Integrity.UNTRUSTED, source="malicious_email.txt"
+    "user_prompt": TaintedValue(
+        value=user_prompt, integrity=Integrity.TRUSTED, source="user"
     ),
-    "summary": TaintedValue(value="", integrity=Integrity.TRUSTED, source="unknown"),
-    "category": TaintedValue(value="", integrity=Integrity.TRUSTED, source="unknown"),
-    "customer_request": TaintedValue(
-        value="", integrity=Integrity.TRUSTED, source="unknown"
+    "email": TaintedValue(value=None, integrity=Integrity.UNTRUSTED, source="email"),  # type: ignore
+    "selected_branch": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="router"
     ),
-    "crm_operation": TaintedValue(
-        value="", integrity=Integrity.TRUSTED, source="unknown"
+    "email_summary": TaintedValue(
+        value=None, integrity=Integrity.UNTRUSTED, source="triage"
     ),
-    "customer_id": TaintedValue(
-        value="", integrity=Integrity.TRUSTED, source="unknown"
+    "email_intent": TaintedValue(
+        value=None, integrity=Integrity.UNTRUSTED, source="triage"
+    ),
+    "email_customer_id": TaintedValue(
+        value=None, integrity=Integrity.UNTRUSTED, source="triage"
+    ),
+    "internal_request": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="request_reader"
+    ),
+    "internal_customer_id": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="request_reader"
+    ),
+    "operation_type": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+    ),
+    "target_customer_id": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+    ),
+    "update_field": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+    ),
+    "update_value": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
     ),
 }
 

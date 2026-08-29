@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, FrozenSet, Mapping, Optional
 from state import Integrity, TaintedValue, join_integrity
+from utils.tool_taints import get_max_taint_for_tool
 
 
 @dataclass(frozen=True)
@@ -12,17 +13,18 @@ class SecurityContext:
     max_taint: int
     provenance: FrozenSet[str]
     origin: str = "unknown"
+    tool_name: Optional[str] = None
 
     def is_trusted(self) -> bool:
         return self.integrity == Integrity.TRUSTED
 
     def to_cedar_context(self) -> Dict[str, Any]:
         return {
-            "integrity": self.integrity.value,
-            "maxTaint": self.max_taint,
+            "integrity": int(self.integrity.value),
+            "maxTaint": int(self.max_taint),
             "provenance": sorted(self.provenance),
             "data": {
-                "integrity": self.integrity.value,
+                "integrity": int(self.integrity.value),
                 "provenance": sorted(self.provenance),
             },
         }
@@ -30,6 +32,7 @@ class SecurityContext:
 
 def build_security_context(
     fields: Optional[Mapping[str, Any]],
+    tool_name: Optional[str] = None,
     *,
     origin: str = "unknown",
 ) -> SecurityContext:
@@ -43,9 +46,10 @@ def build_security_context(
         return SecurityContext(
             fields={},
             integrity=Integrity.UNTRUSTED,
-            max_taint=1,
+            max_taint=Integrity.TRUSTED.value,
             provenance=frozenset({"unknown"}),
             origin=origin,
+            tool_name=None,
         )
 
     integrity = join_integrity(*(value.integrity for value in tainted_fields.values()))
@@ -54,7 +58,7 @@ def build_security_context(
         set().union(*[value.provenance for value in tainted_fields.values()])
     )
 
-    max_taint = 0 if integrity == Integrity.TRUSTED else 1
+    max_taint = get_max_taint_for_tool(tool_name if tool_name else "unknown")
 
     return SecurityContext(
         fields=dict(tainted_fields),
@@ -62,4 +66,5 @@ def build_security_context(
         max_taint=max_taint,
         provenance=provenance,
         origin=origin,
+        tool_name=fields.get("tool_name", None),
     )

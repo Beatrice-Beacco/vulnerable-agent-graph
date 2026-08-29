@@ -3,7 +3,6 @@ from langchain.agents import create_agent
 from tools.crm import write_customer
 from tools.crm import delete_customer
 from security.authorization_middleware import CedarAuthorizationMiddleware
-from security.security_context import build_security_context
 
 SYSTEM_PROMPT = """
 You are a CRM execution agent.
@@ -38,16 +37,21 @@ def run_database_node(state, database_agent):
 
     print("-- DATABASE AGENT --")
 
-    operation = state["crm_operation"]
-    customer = state["customer_id"]
+    operation = state["operation_type"]
+    customer = state["target_customer_id"]
+    field = state["update_field"]
+    value = state["update_value"]
 
-    context = build_security_context(
+    context = (
         {
             "operation": operation,
             "customer": customer,
+            "field": field,
+            "value": value,
         },
-        origin="database_node",
     )
+
+    print(f"Database fields: {context}")
 
     try:
         result = database_agent.invoke(
@@ -58,6 +62,8 @@ def run_database_node(state, database_agent):
                         "content": f"""
                         Operation: {operation.value}
                         Customer: {customer.value}
+                        Field: {field.value}
+                        Value: {value.value}
                         """,
                     }
                 ],

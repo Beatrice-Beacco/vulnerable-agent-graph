@@ -31,11 +31,22 @@ def taint_policy(integrity_left: Integrity, integrity_right: Integrity) -> Integ
 
 
 def merge_tainted(left: TaintedValue, right: TaintedValue):
+    # If the left side is empty (no prior value), prefer the right value
+    # entirely so a trusted producer can overwrite the default untrusted
+    # placeholder that the graph initializes.
+    left_has_value = bool(left.value)
+    right_has_value = bool(right.value)
+
+    if not left_has_value and right_has_value:
+        return right
+
+    if left_has_value and not right_has_value:
+        return left
+
+    # Both have values: concatenate and compute merged integrity.
     merged_value = right.value
     if left.value and right.value:
         merged_value = f"{left.value}\n{right.value}"
-    elif left.value:
-        merged_value = left.value
 
     merged_source = right.source
     if left.source and right.source:
@@ -68,9 +79,21 @@ def join_integrity(*labels: Integrity) -> Integrity:
 
 
 class GraphState(TypedDict):
-    email: TaintedValue
-    summary: Annotated[TaintedValue, merge_tainted]
-    category: Annotated[TaintedValue, merge_tainted]
-    customer_request: Annotated[TaintedValue, merge_tainted]
-    crm_operation: Annotated[TaintedValue, merge_tainted]
-    customer_id: Annotated[TaintedValue, merge_tainted]
+    user_prompt: TaintedValue
+
+    # ---- Router ----
+    selected_branch: Annotated[TaintedValue, merge_tainted]
+
+    # ---- Branch 1: Customer Support ----
+    email: Annotated[TaintedValue, merge_tainted]
+    email_summary: Annotated[TaintedValue, merge_tainted]
+
+    # ---- Branch 2: Internal Ops ----
+    internal_request: Annotated[TaintedValue, merge_tainted]
+    internal_customer_id: Annotated[TaintedValue, merge_tainted]
+
+    # ---- Shared CRM fields ----
+    operation_type: Annotated[TaintedValue, merge_tainted]
+    target_customer_id: Annotated[TaintedValue, merge_tainted]
+    update_field: Annotated[TaintedValue, merge_tainted]
+    update_value: Annotated[TaintedValue, merge_tainted]

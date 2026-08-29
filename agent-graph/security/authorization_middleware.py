@@ -19,10 +19,13 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
 
         tool_call = request.tool_call
 
+        agent_name = self.agent_id
         tool_name = tool_call["name"]
         args = tool_call.get("args", {}) or {}
 
-        security_context = self._resolve_security_context(request)
+        security_context = self._resolve_security_context(
+            request, tool_name, agent_name
+        )
 
         allowed = self.monitor.check_tool(
             agent=self.agent_id,
@@ -36,8 +39,14 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
 
         return handler(request)
 
-    def _resolve_security_context(self, request) -> SecurityContext:
+    def _resolve_security_context(
+        self, request, tool_name: str, agent_name: str
+    ) -> SecurityContext:
         runtime_context = getattr(request.runtime, "context", None)
+
+        # Unwrap tuple if needed
+        if isinstance(runtime_context, tuple) and len(runtime_context) > 0:
+            runtime_context = runtime_context[0]
 
         if isinstance(runtime_context, SecurityContext):
             return runtime_context
@@ -45,7 +54,8 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
         if isinstance(runtime_context, Mapping):
             return build_security_context(
                 runtime_context,
-                origin="agent_runtime_context",
+                tool_name=tool_name,
+                origin=agent_name,
             )
 
         return build_security_context(

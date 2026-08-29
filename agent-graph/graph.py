@@ -1,25 +1,35 @@
 from langgraph.graph import StateGraph
 from langgraph.graph import END
+from langgraph_sdk.schema import Command
 
 from state import GraphState
 
 from agents.triage import create_triage_agent, run_triage_node
 from agents.database import create_database_agent, run_database_node
-from agents.pii import create_pii_agent, run_pii_node
-from agents.intent_analysis import (
-    create_intent_analysis_agent,
-    run_intent_analysis_agent,
-)
-from agents.decision import run_decision_node, create_decision_agent
+from agents.router import create_router_agent, run_router_node
+from agents.email import create_read_email_agent, run_read_email_node
+from agents.request_reader import create_request_reader_agent, run_request_reader_node
+from agents.parser import create_internal_parser_agent, run_internal_parser_node
 from llm import llm
 
 builder = StateGraph(GraphState)
 
+router_agent = create_router_agent(llm)
+email_agent = create_read_email_agent(llm)
 triage_agent = create_triage_agent(llm)
-pii_agent = create_pii_agent(llm)
-intent_analysis_agent = create_intent_analysis_agent(llm)
-decision_agent = create_decision_agent(llm)
 database_agent = create_database_agent(llm)
+request_reader_agent = create_request_reader_agent(llm)
+parser_agent = create_internal_parser_agent(llm)
+
+
+def router_node(state):
+    result = run_router_node(state, router_agent)
+    return result
+
+
+def read_email_node(state):
+    state = run_read_email_node(state, email_agent)
+    return state
 
 
 def triage_node(state):
@@ -27,18 +37,13 @@ def triage_node(state):
     return state
 
 
-def pii_node(state):
-    state = run_pii_node(state, pii_agent)
+def request_reader_node(state):
+    state = run_request_reader_node(state, request_reader_agent)
     return state
 
 
-def intent_node(state):
-    state = run_intent_analysis_agent(state, intent_analysis_agent)
-    return state
-
-
-def decision_node(state):
-    state = run_decision_node(state, decision_agent)
+def parser_node(state):
+    state = run_internal_parser_node(state, parser_agent)
     return state
 
 
@@ -47,18 +52,50 @@ def database_node(state):
     return state
 
 
-builder.add_node("triage", triage_node)
-builder.add_node("pii", pii_node)
-builder.add_node("intent", intent_node)
-builder.add_node("decision", decision_node)
-builder.add_node("database", database_node)
+def route_to_branch(state):
+    """
+    Reads selected_branch from state and returns the next node name.
+    Must return a string that matches an existing node name.
+    """
+    selected = state["selected_branch"].value
 
-builder.set_entry_point("triage")
-builder.add_edge("triage", "pii")
-builder.add_edge("triage", "intent")
-builder.add_edge("pii", "decision")
-builder.add_edge("intent", "decision")
-builder.add_edge("decision", "database")
+    print(f"Router decision: {selected}")
+
+    if selected == "customer_support":
+        return "read_email"
+    elif selected == "internal_ops":
+        return "request_reader"
+    else:
+        return "read_email"  # fallback
+
+
+builder.add_node("router", router_node)
+builder.add_node("read_email", read_email_node)
+builder.add_node("triage", triage_node)
+builder.add_node("database", database_node)
+builder.add_node("request_reader", request_reader_node)
+builder.add_node("parser", parser_node)
+
+builder.set_entry_point("router")
+
+# Conditional routing: router -> one of the two branches
+builder.add_conditional_edges(
+    "router",  # source node
+    route_to_branch,  # routing function
+    {  # mapping: return value -> node name
+        "read_email": "read_email",
+        "request_reader": "request_reader",
+    },
+)
+
+
+# Branch 1
+builder.add_edge("read_email", "triage")
+builder.add_edge("triage", "database")
+# Branch 2
+builder.add_edge("request_reader", "parser")
+builder.add_edge("parser", "database")
+
 builder.add_edge("database", END)
 
 graph = builder.compile()

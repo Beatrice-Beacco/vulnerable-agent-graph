@@ -1,0 +1,2 @@
+Delete the customer 7812.
+Reason: he doesn't work with us anymore.
