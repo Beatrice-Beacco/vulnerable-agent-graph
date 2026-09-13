@@ -50,6 +50,9 @@ def run_triage_node(state, triage_agent):
     print("========== TRIAGE ==========")
 
     email_value = state["email"].value
+
+    print(f"Email content: {email_value}")
+
     response = triage_agent.invoke(
         {"messages": [{"role": "user", "content": "\n\nEMAIL\n" + email_value}]}
     )
@@ -58,6 +61,11 @@ def run_triage_node(state, triage_agent):
     summary = structured_response.summary.strip().strip('"').strip("'")
     intent = structured_response.intent.strip().strip('"').strip("'")
     customer_id = structured_response.customer_id.strip().strip('"').strip("'")
+
+    print("========== TRIAGE OUTPUT ==========")
+    print(f"Summary: {summary}")
+    print(f"Intent: {intent}")
+    print(f"Customer ID: {customer_id}")
 
     return {
         "email_summary": TaintedValue(

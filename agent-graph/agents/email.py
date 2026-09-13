@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from langchain.agents import create_agent
+from langchain.messages import ToolMessage
 from state import TaintedValue, Integrity
 from tools.email import read_email
 
@@ -21,7 +22,6 @@ def create_read_email_agent(llm):
     agent = create_agent(
         model=llm,
         system_prompt=SYSTEM_PROMPT,
-        response_format=ReadEmailAgentOutput,
         tools=[read_email],
     )
     return agent
@@ -33,19 +33,20 @@ def run_read_email_node(state, read_email_agent):
     response = read_email_agent.invoke(
         {"messages": [{"role": "user", "content": state["user_prompt"].value}]}
     )
-    structured_response = response.get("structured_response", response)
 
-    # structured_response may be a dataclass-like object or a plain dict.
-    if isinstance(structured_response, dict):
-        content = structured_response.get("content", "")
-    else:
-        content = getattr(structured_response, "content", "")
+    email_content = None
 
-    content = content.strip().strip('"').strip("'")
+    for message in response["messages"]:
+        if isinstance(message, ToolMessage) and message.name == "read_email":
+            email_content = message.content
+            break
+
+    if email_content is None:
+        raise RuntimeError("read_email tool was not executed or returned no content")
 
     return {
         "email": TaintedValue(
-            value=content,
+            value=email_content,
             integrity=Integrity.UNTRUSTED,
             source="read_email",
             provenance=["read_email"],
