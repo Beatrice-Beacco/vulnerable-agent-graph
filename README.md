@@ -37,8 +37,9 @@ API_KEY=your-key
 4. Run the example graph:
 
 ```powershell
-.\.venv\Scripts\python.exe agent-graph/main.py
+./.venv/Scripts/python.exe agent-graph/main.py
 # Enter a prompt when requested, for example:
 #   read internal data
 #   read the external email
+#   what is the total revenue per region? save it as a report
 ```
