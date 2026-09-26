@@ -1,13 +1,20 @@
-from collections.abc import Mapping
-
 from engine.engine import ReferenceMonitor
 from langchain.agents.middleware import AgentMiddleware
 from security.security_context import SecurityContext, build_security_context
+from security.tool_labels import output_label
 
 monitor = ReferenceMonitor()
 
 
 class CedarAuthorizationMiddleware(AgentMiddleware):
+    """
+    Policy enforcement point on every tool call of an agent.
+
+    Before the call: the reference monitor authorizes it with the label of the
+    agent's LLM context. After the call: the label of the tool output is
+    joined into that context, so data read by one call (e.g. a confidential
+    CRM field) labels every later call of the same agent (e.g. send_email).
+    """
 
     def __init__(self, agent_id: str):
         self.monitor = monitor
@@ -18,47 +25,28 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
         print("\nCEDAR AUTHORIZATION MIDDLEWARE")
 
         tool_call = request.tool_call
-
-        agent_name = self.agent_id
         tool_name = tool_call["name"]
         args = tool_call.get("args", {}) or {}
 
-        security_context = self._resolve_security_context(
-            request, tool_name, agent_name
-        )
+        context = getattr(request.runtime, "context", None)
+        if not isinstance(context, SecurityContext):
+            # Without a context from the graph nothing can be vouched for.
+            context = build_security_context({}, origin="missing_context")
 
-        allowed = self.monitor.check_tool(
+        decision = self.monitor.check_tool(
             agent=self.agent_id,
             tool=tool_name,
-            context=security_context,
+            context=context,
             args=args,
         )
 
-        if not allowed:
-            raise PermissionError(f"Blocked tool call: {tool_name}")
+        print(decision)
 
-        return handler(request)
+        if not decision.allowed:
+            raise PermissionError(str(decision))
 
-    def _resolve_security_context(
-        self, request, tool_name: str, agent_name: str
-    ) -> SecurityContext:
-        runtime_context = getattr(request.runtime, "context", None)
+        result = handler(request)
 
-        # Unwrap tuple if needed
-        if isinstance(runtime_context, tuple) and len(runtime_context) > 0:
-            runtime_context = runtime_context[0]
+        context.absorb(output_label(tool_name, args))
 
-        if isinstance(runtime_context, SecurityContext):
-            return runtime_context
-
-        if isinstance(runtime_context, Mapping):
-            return build_security_context(
-                runtime_context,
-                tool_name=tool_name,
-                origin=agent_name,
-            )
-
-        return build_security_context(
-            {},
-            origin="missing_context",
-        )
+        return result

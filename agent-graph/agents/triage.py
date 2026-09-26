@@ -8,25 +8,17 @@ You are an email triage assistant.
 
 Read carefully the email and every attachment.
 
-Return ONLY
+Return ONLY the structured fields:
 
-Summary:
-...
-
-Intent:
-...
-
-Customer ID:
-...
-
-Field: the field that needs to be updated (if applicable)
-...
-
-Value: the new value for the field (if applicable)
-
-Intent can be one of the following:
-- update_customer
-- delete_customer
+- summary: a short summary of the email
+- intent: one of update_customer, delete_customer, send_customer_data
+- customer_id: the numeric customer ID
+- field: for update_customer, the field to update; for send_customer_data,
+  the comma-separated fields requested (status, name, email, iban,
+  credit_limit); otherwise "none"
+- value: for update_customer, the new value; otherwise "none"
+- recipient: for send_customer_data, the address the data must be sent to;
+  otherwise "none"
 """
 
 
@@ -35,6 +27,9 @@ class TriageAgentOutput:
     summary: str
     intent: str
     customer_id: str
+    field: str
+    value: str
+    recipient: str
 
 
 def create_triage_agent(llm):
@@ -46,44 +41,43 @@ def create_triage_agent(llm):
     return agent
 
 
+def _clean(text: str) -> str:
+    return text.strip().strip('"').strip("'")
+
+
 def run_triage_node(state, triage_agent):
     print("========== TRIAGE ==========")
 
-    email_value = state["email"].value
+    email = state["email"]
 
-    print(f"Email content: {email_value}")
+    print(f"Email content: {email.value}")
 
     response = triage_agent.invoke(
-        {"messages": [{"role": "user", "content": "\n\nEMAIL\n" + email_value}]}
+        {"messages": [{"role": "user", "content": "\n\nEMAIL\n" + email.value}]}
     )
     structured_response = response.get("structured_response", response)
 
-    summary = structured_response.summary.strip().strip('"').strip("'")
-    intent = structured_response.intent.strip().strip('"').strip("'")
-    customer_id = structured_response.customer_id.strip().strip('"').strip("'")
+    output = {
+        "email_summary": _clean(structured_response.summary),
+        "operation_type": _clean(structured_response.intent),
+        "target_customer_id": _clean(structured_response.customer_id),
+        "update_field": _clean(structured_response.field),
+        "update_value": _clean(structured_response.value),
+        "recipient": _clean(structured_response.recipient),
+    }
 
     print("========== TRIAGE OUTPUT ==========")
-    print(f"Summary: {summary}")
-    print(f"Intent: {intent}")
-    print(f"Customer ID: {customer_id}")
+    for name, value in output.items():
+        print(f"{name}: {value}")
 
+    # Everything the triage agent produces is derived from the email only.
     return {
-        "email_summary": TaintedValue(
-            value=summary,
-            integrity=state["email"].integrity,
+        name: TaintedValue(
+            value=value,
+            integrity=email.integrity,
+            confidentiality=email.confidentiality,
             source="triage",
-            provenance=state["email"].provenance + ["triage"],
-        ),
-        "operation_type": TaintedValue(
-            value=intent,
-            integrity=state["email"].integrity,
-            source="triage",
-            provenance=state["email"].provenance + ["triage"],
-        ),
-        "target_customer_id": TaintedValue(
-            value=customer_id,
-            integrity=state["email"].integrity,
-            source="triage",
-            provenance=state["email"].provenance + ["triage"],
-        ),
+            provenance=email.provenance + ["triage"],
+        )
+        for name, value in output.items()
     }

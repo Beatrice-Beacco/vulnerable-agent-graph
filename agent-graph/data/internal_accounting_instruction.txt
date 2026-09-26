@@ -1,0 +1,2 @@
+Send the IBAN and the credit limit of customer 7812 to accounting@company.internal.
+Reason: yearly credit review.

@@ -41,5 +41,20 @@ API_KEY=your-key
 # Enter a prompt when requested, for example:
 #   read internal data
 #   read the external email
-#   what is the total revenue per region? save it as a report
+```
+
+5. Choose the scenario with environment variables (files in `agent-graph/data/`):
+
+| Scenario                    | Variable                                               | Expected                                                       |
+|-----------------------------|--------------------------------------------------------|----------------------------------------------------------------|
+| Injected delete (integrity) | `EMAIL_FILE=malicious_email.txt`                       | DatabaseAgent blocked by `no-untrusted-mutation`               |
+| Benign status reply         | `EMAIL_FILE=status_request_email.txt`                  | read + send allowed                                            |
+| Injected exfiltration       | `EMAIL_FILE=exfiltration_email.txt`                    | DatabaseAgent read blocked by `no-untrusted-confidential-read` |
+| Trusted leak to external    | `INSTRUCTION_FILE=internal_leak_instruction.txt`       | read allowed, EmailAgent blocked by `no-write-down-email`      |
+| Trusted send to accounting  | `INSTRUCTION_FILE=internal_accounting_instruction.txt` | read + send allowed                                            |
+
+```powershell
+$env:EMAIL_FILE="exfiltration_email.txt"; ./.venv/Scripts/python.exe agent-graph/main.py
+# ablation: leave policy files out of the policy set
+$env:DISABLED_POLICIES="confidentiality_read.cedar"
 ```

@@ -1,0 +1,48 @@
+entity Agent;
+
+// classification: 0 = PUBLIC, 1 = INTERNAL, 2 = CONFIDENTIAL
+entity Field {
+  classification: Long,
+};
+
+entity Customer;
+
+entity Recipient {
+  clearance: Long,
+};
+
+type ToolRequestContext = {
+  // integrity: 0 = trusted, 1 = untrusted
+  integrity: Long,
+  // confidentiality: 0 = PUBLIC, 1 = INTERNAL, 2 = CONFIDENTIAL
+  conf: Long,
+  provenance: Set<String>,
+};
+
+// Action groups
+action "crm_mutation";  // modifies the CRM: integrity-critical
+action "egress";        // moves data to a sink with a clearance
+
+action "read_customer" appliesTo {
+  principal: Agent,
+  resource: Field,
+  context: ToolRequestContext,
+};
+
+action "write_customer" in ["crm_mutation", "egress"] appliesTo {
+  principal: Agent,
+  resource: Field,
+  context: ToolRequestContext,
+};
+
+action "delete_customer" in ["crm_mutation"] appliesTo {
+  principal: Agent,
+  resource: Customer,
+  context: ToolRequestContext,
+};
+
+action "send_email" in ["egress"] appliesTo {
+  principal: Agent,
+  resource: Recipient,
+  context: ToolRequestContext,
+};

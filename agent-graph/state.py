@@ -13,12 +13,27 @@ class Integrity(IntEnum):
     UNTRUSTED = 1
 
 
+class Confidentiality(IntEnum):
+    """
+    Confidentiality lattice (Bell-LaPadula levels): PUBLIC < INTERNAL < CONFIDENTIAL.
+
+    The level of a value is the highest level of the data it was derived from.
+    A value may only flow to a sink whose clearance is at least its level
+    ("no write down", enforced by engine/policies/confidentiality.cedar).
+    """
+
+    PUBLIC = 0
+    INTERNAL = 1
+    CONFIDENTIAL = 2
+
+
 @dataclass
 class TaintedValue:
     value: str
     integrity: Integrity
     source: str = "unknown"
     provenance: list[str] = field(default_factory=list)
+    confidentiality: Confidentiality = Confidentiality.PUBLIC
 
     def is_trusted(self) -> bool:
         return self.integrity == Integrity.TRUSTED
@@ -61,6 +76,9 @@ def merge_tainted(left: TaintedValue, right: TaintedValue):
         integrity=taint_policy(left.integrity, right.integrity),
         source=merged_source,
         provenance=merged_provenance,
+        confidentiality=join_confidentiality(
+            left.confidentiality, right.confidentiality
+        ),
     )
 
 
@@ -76,6 +94,15 @@ def join_integrity(*labels: Integrity) -> Integrity:
         return Integrity.TRUSTED
 
     return Integrity.UNTRUSTED
+
+
+def join_confidentiality(*labels: Confidentiality) -> Confidentiality:
+    """
+    Join operator (⊔) of the confidentiality lattice: the highest level.
+    The join of no labels is PUBLIC (bottom).
+    """
+
+    return Confidentiality(max((int(label) for label in labels), default=0))
 
 
 class GraphState(TypedDict):
@@ -97,3 +124,14 @@ class GraphState(TypedDict):
     target_customer_id: Annotated[TaintedValue, merge_tainted]
     update_field: Annotated[TaintedValue, merge_tainted]
     update_value: Annotated[TaintedValue, merge_tainted]
+    # Address the requested customer data is sent to (send_customer_data)
+    recipient: Annotated[TaintedValue, merge_tainted]
+
+    # ---- Result of the CRM agent ----
+    database_status: str
+    # Customer fields read for send_customer_data, handed to the email agent.
+    # Labeled with the database agent's context (confidentiality included).
+    customer_data: Annotated[TaintedValue, merge_tainted]
+
+    # ---- Result of the email agent ----
+    email_status: str

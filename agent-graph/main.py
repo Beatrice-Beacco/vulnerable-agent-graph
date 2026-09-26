@@ -1,4 +1,6 @@
 from graph import graph
+from tools.crm import customers
+from tools.email import OUTBOX
 from state import GraphState, Integrity
 from state import TaintedValue
 
@@ -40,6 +42,12 @@ state: GraphState = {
     "update_value": TaintedValue(
         value=None, integrity=Integrity.TRUSTED, source="internal_parser"
     ),
+    "recipient": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+    ),
+    "customer_data": TaintedValue(
+        value=None, integrity=Integrity.TRUSTED, source="database_agent"
+    ),
 }
 
 result = graph.invoke(state)  # type: ignore[arg-type]
@@ -47,3 +55,10 @@ result = graph.invoke(state)  # type: ignore[arg-type]
 print()
 print("FINAL STATE")
 print(result)
+print()
+print("OUTBOX (data that left the system)")
+for message in OUTBOX:
+    print(message)
+print()
+print("CRM")
+print(customers)

@@ -1,6 +1,5 @@
 from langgraph.graph import StateGraph
 from langgraph.graph import END
-from langgraph_sdk.schema import Command
 
 from state import GraphState
 
@@ -10,6 +9,7 @@ from agents.router import create_router_agent, run_router_node
 from agents.email import create_read_email_agent, run_read_email_node
 from agents.request_reader import create_request_reader_agent, run_request_reader_node
 from agents.parser import create_internal_parser_agent, run_internal_parser_node
+from agents.email_sender import create_email_sender_agent, run_email_sender_node
 from llm import llm
 
 builder = StateGraph(GraphState)
@@ -20,6 +20,7 @@ triage_agent = create_triage_agent(llm)
 database_agent = create_database_agent(llm)
 request_reader_agent = create_request_reader_agent(llm)
 parser_agent = create_internal_parser_agent(llm)
+email_sender_agent = create_email_sender_agent(llm)
 
 
 def router_node(state):
@@ -52,6 +53,28 @@ def database_node(state):
     return state
 
 
+def email_sender_node(state):
+    state = run_email_sender_node(state, email_sender_agent)
+    return state
+
+
+def route_after_database(state):
+    """
+    Customer data is sent only for send_customer_data requests the database
+    agent executed. The choice depends on operation_type, whose label the
+    email agent's context includes.
+    """
+    operation = state["operation_type"].value
+    if (
+        operation == "send_customer_data"
+        and state.get("database_status") == "executed"
+        and state.get("customer_data") is not None
+        and state["customer_data"].value
+    ):
+        return "email_sender"
+    return END
+
+
 def route_to_branch(state):
     """
     Reads selected_branch from state and returns the next node name.
@@ -75,6 +98,7 @@ builder.add_node("triage", triage_node)
 builder.add_node("database", database_node)
 builder.add_node("request_reader", request_reader_node)
 builder.add_node("parser", parser_node)
+builder.add_node("email_sender", email_sender_node)
 
 builder.set_entry_point("router")
 
@@ -96,6 +120,10 @@ builder.add_edge("triage", "database")
 builder.add_edge("request_reader", "parser")
 builder.add_edge("parser", "database")
 
-builder.add_edge("database", END)
+# After the CRM operation: send the customer data only if requested
+builder.add_conditional_edges(
+    "database", route_after_database, ["email_sender", END]
+)
+builder.add_edge("email_sender", END)
 
 graph = builder.compile()

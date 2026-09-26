@@ -5,7 +5,7 @@ from langchain.agents import create_agent
 
 @dataclass
 class RouterAgentOutput:
-    selected_branch: str  # "customer_support", "internal_ops", "analytics"
+    selected_branch: str  # "customer_support", "internal_ops"
 
 
 def create_router_agent(llm):
@@ -16,7 +16,7 @@ Branches:
 - customer_support : requests coming from external emails or customer messages
 - internal_ops     : requests coming from authenticated internal systems or admins
 
-Respond with ONLY one word: customer_support, internal_ops, or analytics
+Respond with ONLY one word: customer_support or internal_ops
 """
     agent = create_agent(
         model=llm,
@@ -41,7 +41,7 @@ def run_router_node(state: GraphState, router_agent) -> dict:
 
     branch = structured_response.selected_branch.strip().strip('"').strip("'")
 
-    valid_branches = {"customer_support", "internal_ops", "analytics"}
+    valid_branches = {"customer_support", "internal_ops"}
     if branch not in valid_branches:
         branch = "customer_support"  # fallback
 

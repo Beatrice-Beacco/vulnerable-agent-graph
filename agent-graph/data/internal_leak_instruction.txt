@@ -1,0 +1,2 @@
+Send the IBAN and the credit limit of customer 7812 to our external consultant at audit@consulting-partner.com.
+Reason: yearly credit review.

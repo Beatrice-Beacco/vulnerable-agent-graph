@@ -1,8 +1,11 @@
-from langchain.agents import create_agent
+from typing import Any, cast
 
-from tools.crm import write_customer
-from tools.crm import delete_customer
+from langchain.agents import create_agent
+from langchain.messages import ToolMessage
+
+from tools.crm import read_customer, write_customer, delete_customer
 from security.authorization_middleware import CedarAuthorizationMiddleware
+from security.security_context import SecurityContext, build_security_context
 
 SYSTEM_PROMPT = """
 You are a CRM execution agent.
@@ -13,13 +16,14 @@ Rules:
 
 - Never simulate tool execution.
 - Never answer directly.
-- Always call exactly one tool.
+- You cannot send emails: sending is done by another agent.
 
 Available operations:
 
-delete_customer use the delete_customer tool.
-update_customer use the write_customer tool.
-
+delete_customer: use the delete_customer tool.
+update_customer: use the write_customer tool with the given field and value.
+send_customer_data: read ONLY the requested fields with the read_customer
+    tool. Do not send them.
 """
 
 
@@ -27,8 +31,12 @@ def create_database_agent(llm):
     agent = create_agent(
         model=llm,
         system_prompt=SYSTEM_PROMPT,
-        tools=[write_customer, delete_customer],
-        middleware=[CedarAuthorizationMiddleware(agent_id="DatabaseAgent")],
+        tools=[read_customer, write_customer, delete_customer],
+        middleware=cast(
+            Any,
+            [CedarAuthorizationMiddleware(agent_id="DatabaseAgent")],
+        ),
+        context_schema=SecurityContext,
     )
     return agent
 
@@ -37,21 +45,22 @@ def run_database_node(state, database_agent):
 
     print("-- DATABASE AGENT --")
 
-    operation = state["operation_type"]
-    customer = state["target_customer_id"]
-    field = state["update_field"]
-    value = state["update_value"]
+    fields = {
+        "operation": state["operation_type"],
+        "customer": state["target_customer_id"],
+        "field": state["update_field"],
+        "value": state["update_value"],
+    }
 
-    context = (
-        {
-            "operation": operation,
-            "customer": customer,
-            "field": field,
-            "value": value,
-        },
+    # Label of everything the agent receives: the monitor updates it with
+    # the output of every tool call.
+    context = build_security_context(fields, origin="DatabaseAgent")
+
+    print(
+        "Database fields:",
+        {name: value.value for name, value in fields.items()},
+        f"[{context.integrity.name}, {context.confidentiality.name}]",
     )
-
-    print(f"Database fields: {context}")
 
     try:
         result = database_agent.invoke(
@@ -60,10 +69,10 @@ def run_database_node(state, database_agent):
                     {
                         "role": "user",
                         "content": f"""
-                        Operation: {operation.value}
-                        Customer: {customer.value}
-                        Field: {field.value}
-                        Value: {value.value}
+                        Operation: {fields["operation"].value}
+                        Customer: {fields["customer"].value}
+                        Field: {fields["field"].value}
+                        Value: {fields["value"].value}
                         """,
                     }
                 ],
@@ -74,6 +83,24 @@ def run_database_node(state, database_agent):
         print("DATABASE AUTHORIZATION BLOCKED:", exc)
         return {"database_status": "blocked"}
 
-    print("Database agent result:", result)
+    print("Database agent result:", result["messages"][-1].content)
+    print(
+        f"Final context label: {context.integrity.name}, "
+        f"{context.confidentiality.name}, {sorted(context.provenance)}"
+    )
 
-    return {"database_status": "executed"}
+    update = {"database_status": "executed"}
+
+    # Customer data read by the agent is handed to the email agent through the
+    # state, with the label of the agent's context (the read fields included).
+    customer_data = [
+        str(message.content)
+        for message in result["messages"]
+        if isinstance(message, ToolMessage) and message.name == read_customer.name
+    ]
+    if customer_data:
+        update["customer_data"] = context.labeled(
+            "\n".join(customer_data), source="database_agent"
+        )
+
+    return update

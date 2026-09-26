@@ -1,6 +1,9 @@
+import os
 from pathlib import Path
 
 from langchain_core.tools import tool
+
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 @tool
@@ -13,11 +16,10 @@ def read_internal_instruction(file_path: str) -> str:
     Returns:
         str: The content of the internal instruction.
     """
-    data_path = (
-        Path(__file__).resolve().parent.parent / "data" / "internal_instruction.txt"
-    )
+    # The scenario is chosen with INSTRUCTION_FILE, not by the agent.
+    data_path = DATA_DIR / os.getenv("INSTRUCTION_FILE", "internal_instruction.txt")
 
-    with data_path.open() as f:
-        email = f.read()
+    with data_path.open(encoding="utf-8") as f:
+        instruction = f.read()
 
-    return email
+    return instruction

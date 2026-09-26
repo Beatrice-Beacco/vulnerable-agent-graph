@@ -1,41 +1,78 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, FrozenSet, Mapping, Optional
-from state import Integrity, TaintedValue, join_integrity
-from utils.tool_taints import get_max_taint_for_tool
+from dataclasses import dataclass, field
+from typing import Any, Dict, Mapping, Optional
+
+from security.labels import Label
+from state import TaintedValue
 
 
-@dataclass(frozen=True)
+@dataclass
 class SecurityContext:
-    fields: Dict[str, TaintedValue]
-    integrity: Integrity
-    max_taint: int
-    provenance: FrozenSet[str]
+    """
+    Runtime context of an agent invocation, owned by the reference monitor.
+
+    `label` is the label of everything in the agent's LLM context: the state
+    fields the node handed to the agent, joined with the output of every tool
+    call it made so far. The LLM is outside the TCB, so anything it produces
+    (tool arguments, answer) conservatively carries this label.
+    """
+
+    fields: Dict[str, TaintedValue] = field(default_factory=dict)
+    label: Label = field(default_factory=Label.top)
     origin: str = "unknown"
-    tool_name: Optional[str] = None
+
+    @property
+    def integrity(self):
+        return self.label.integrity
+
+    @property
+    def confidentiality(self):
+        return self.label.confidentiality
+
+    @property
+    def provenance(self):
+        return self.label.provenance
 
     def is_trusted(self) -> bool:
-        return self.integrity == Integrity.TRUSTED
+        return self.label.integrity == 0
+
+    def absorb(self, label: Label) -> None:
+        """Joins the label of new data entering the LLM context (tool output)."""
+        self.label = self.label.join(label)
+
+    def labeled(self, value: Any, source: str) -> TaintedValue:
+        """
+        Labels a value the agent hands to the graph state. The value was
+        produced from the agent's LLM context, so it carries the context label:
+        this is how labels propagate from one agent to the next.
+        """
+        return TaintedValue(
+            value=value,
+            integrity=self.label.integrity,
+            confidentiality=self.label.confidentiality,
+            source=source,
+            provenance=sorted(self.label.provenance) + [source],
+        )
 
     def to_cedar_context(self) -> Dict[str, Any]:
         return {
-            "integrity": int(self.integrity.value),
-            "maxTaint": int(self.max_taint),
-            "provenance": sorted(self.provenance),
-            "data": {
-                "integrity": int(self.integrity.value),
-                "provenance": sorted(self.provenance),
-            },
+            "integrity": int(self.label.integrity),
+            "conf": int(self.label.confidentiality),
+            "provenance": sorted(self.label.provenance),
         }
 
 
 def build_security_context(
     fields: Optional[Mapping[str, Any]],
-    tool_name: Optional[str] = None,
     *,
     origin: str = "unknown",
 ) -> SecurityContext:
+    """
+    Security context of an agent that receives `fields` from the graph state.
+    Without labeled fields nothing can be vouched for: the context starts at
+    the top of the lattice (untrusted, confidential).
+    """
     fields = fields or {}
 
     tainted_fields: Dict[str, TaintedValue] = {
@@ -43,28 +80,10 @@ def build_security_context(
     }
 
     if not tainted_fields:
-        return SecurityContext(
-            fields={},
-            integrity=Integrity.UNTRUSTED,
-            max_taint=Integrity.TRUSTED.value,
-            provenance=frozenset({"unknown"}),
-            origin=origin,
-            tool_name=None,
-        )
+        return SecurityContext(fields={}, label=Label.top(), origin=origin)
 
-    integrity = join_integrity(*(value.integrity for value in tainted_fields.values()))
+    label = Label.bottom()
+    for value in tainted_fields.values():
+        label = label.join(Label.of(value))
 
-    provenance = frozenset(
-        set().union(*[value.provenance for value in tainted_fields.values()])
-    )
-
-    max_taint = get_max_taint_for_tool(tool_name if tool_name else "unknown")
-
-    return SecurityContext(
-        fields=dict(tainted_fields),
-        integrity=integrity,
-        max_taint=max_taint,
-        provenance=provenance,
-        origin=origin,
-        tool_name=fields.get("tool_name", None),
-    )
+    return SecurityContext(fields=dict(tainted_fields), label=label, origin=origin)
