@@ -1,6 +1,9 @@
 from pydantic.dataclasses import dataclass
 from state import GraphState, TaintedValue, Integrity
-from langchain.agents import create_agent
+from agents.base import build_agent
+from security.security_context import build_security_context
+
+AGENT_ID = "RouterAgent"
 
 
 @dataclass
@@ -18,13 +21,7 @@ Branches:
 
 Respond with ONLY one word: customer_support or internal_ops
 """
-    agent = create_agent(
-        model=llm,
-        system_prompt=routing_prompt,
-        response_format=RouterAgentOutput,
-    )
-
-    return agent
+    return build_agent(llm, AGENT_ID, routing_prompt, response_format=RouterAgentOutput)
 
 
 def run_router_node(state: GraphState, router_agent) -> dict:
@@ -35,7 +32,10 @@ def run_router_node(state: GraphState, router_agent) -> dict:
     prompt_text = state["user_prompt"].value
 
     response = router_agent.invoke(
-        {"messages": [{"role": "user", "content": prompt_text}]}
+        {"messages": [{"role": "user", "content": prompt_text}]},
+        context=build_security_context(
+            {"user_prompt": state["user_prompt"]}, origin=AGENT_ID
+        ),
     )
     structured_response = response.get("structured_response", response)
 

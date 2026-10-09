@@ -1,8 +1,13 @@
 from dataclasses import dataclass
 
-from langchain.agents import create_agent
+from langchain.messages import ToolMessage
+
+from agents.base import build_agent
+from security.security_context import build_security_context
 from state import TaintedValue, Integrity
 from tools.internal import read_internal_instruction
+
+AGENT_ID = "RequestReaderAgent"
 
 SYSTEM_PROMPT = """
 You are an AI agent that is able to read the internal instructions from the file system.
@@ -18,24 +23,38 @@ class RequestReaderOutput:
 
 
 def create_request_reader_agent(llm):
-    agent = create_agent(
-        model=llm,
-        system_prompt=SYSTEM_PROMPT,
-        response_format=RequestReaderOutput,
+    return build_agent(
+        llm,
+        AGENT_ID,
+        SYSTEM_PROMPT,
         tools=[read_internal_instruction],
+        response_format=RequestReaderOutput,
     )
-    return agent
 
 
 def run_request_reader_node(state, request_reader_agent):
     print("-- READ INTERNAL INSTRUCTION AGENT --")
 
     response = request_reader_agent.invoke(
-        {"messages": [{"role": "user", "content": state["user_prompt"].value}]}
+        {"messages": [{"role": "user", "content": state["user_prompt"].value}]},
+        context=build_security_context(
+            {"user_prompt": state["user_prompt"]}, origin=AGENT_ID
+        ),
     )
     structured_response = response.get("structured_response", response)
 
     content = structured_response.content.strip().strip('"').strip("'")
+
+    # The TRUSTED label below belongs to what the tool read: the parser gets
+    # the request exactly as read, not re-emitted by this agent's LLM.
+    raw = [
+        str(message.content)
+        for message in response["messages"]
+        if isinstance(message, ToolMessage)
+        and message.name == read_internal_instruction.name
+    ]
+    if raw:
+        content = raw[-1].strip()
 
     return {
         "internal_request": TaintedValue(

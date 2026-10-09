@@ -6,7 +6,12 @@ from security.directory import normalize_address, recipient_clearance
 from security.security_context import SecurityContext
 from tools.crm import FIELD_CLASSIFICATION, requested_fields
 
-from .schema import ENTITIES, POLICIES, SCHEMA, entity
+from .facts import canonical, request_facts
+from .schema import ENTITIES, OPERATION_EVIDENCE, POLICIES, SCHEMA, entity
+
+# Tools that only bring data into the graph: no policy constrains the call,
+# the output is labeled by security/tool_labels.py when it enters the context.
+SOURCE_TOOLS = {"read_email", "read_internal_instruction"}
 
 
 @dataclass(frozen=True)
@@ -15,6 +20,9 @@ class AuthorizationDecision:
     agent: str
     tool: str
     reason: str
+    # Ids of the policies that decided: the forbids of a deny, the permits
+    # of an allow.
+    policies: tuple[str, ...] = ()
 
     def __str__(self) -> str:
         verdict = "ALLOW" if self.allowed else "DENY"
@@ -47,16 +55,72 @@ class ReferenceMonitor:
         """
         args = args or {}
 
+        if tool in SOURCE_TOOLS:
+            return AuthorizationDecision(True, agent, tool, "source tool")
+
         try:
             requests = self._requests(tool, args)
         except ValueError as exc:
             # Unknown tools, fields or arguments are not mediated: fail closed.
             return AuthorizationDecision(False, agent, tool, str(exc))
 
-        cedar_context = context.to_cedar_context()
+        cedar_context = {**context.to_cedar_context(), **self._call_targets(args)}
         print("CEDAR context:", cedar_context)
 
-        permitted = []
+        return self._decide(agent, tool, requests, cedar_context)
+
+    def check_analysis(
+        self, agent: str, analysis: dict, request: str, context: SecurityContext
+    ) -> AuthorizationDecision:
+        """
+        Authorizes an analysis: the structured CRM operation `agent` derived
+        from `request`. validation.cedar and quarantine.cedar decide, from
+        facts about the analysis, the request and the analyst.
+        """
+        op = canonical(analysis)
+        try:
+            resource = self._operation(op["operation"])
+            fields = [self._field(name) for name in op["fields"]]
+        except ValueError as exc:
+            return AuthorizationDecision(False, agent, "check_analysis", str(exc))
+
+        cedar_context = {
+            "integrity": int(context.label.integrity),
+            "conf": int(context.label.confidentiality),
+            "provenance": sorted(context.label.provenance),
+            "customer_id": op["customer_id"],
+            "fields": fields,
+            "field_count": len(fields),
+            "value": op["value"],
+            "recipient": op["recipient"],
+            **request_facts(request, op["value"]),
+            "denied_calls": context.denied_calls,
+        }
+        request_ = CedarRequest("check_analysis", "Operation", resource)
+        return self._decide(agent, "check_analysis", [request_], cedar_context)
+
+    def adopt_analysis(
+        self, agent: str, analysis: dict, conflicting: int
+    ) -> AuthorizationDecision:
+        """
+        Authorizes a checked analysis to become the operation the executors
+        run, given how many other checked analyses describe another one
+        (consensus.cedar).
+        """
+        try:
+            resource = self._operation(canonical(analysis)["operation"])
+        except ValueError as exc:
+            return AuthorizationDecision(False, agent, "adopt_analysis", str(exc))
+        request = CedarRequest("adopt_analysis", "Operation", resource)
+        return self._decide(
+            agent, "adopt_analysis", [request], {"conflicting_analyses": conflicting}
+        )
+
+    def _decide(
+        self, agent: str, name: str, requests: list, cedar_context: dict
+    ) -> AuthorizationDecision:
+        """All the Cedar requests of one decision must be allowed."""
+        permitted, permit_ids = [], []
         for request in requests:
             allowed, policies, errors = self.authorize(agent, request, cedar_context)
             target = f"{request.action} on {request.resource_type}::{request.resource_id!r}"
@@ -68,11 +132,14 @@ class ReferenceMonitor:
                     reason = f"{target} not permitted by any policy"
                 if errors:
                     reason += f"; errors: {'; '.join(errors)}"
-                return AuthorizationDecision(False, agent, tool, reason)
+                return AuthorizationDecision(False, agent, name, reason, tuple(policies))
 
             permitted.append(f"{target} permitted by {', '.join(policies)}")
+            permit_ids.extend(p for p in policies if p not in permit_ids)
 
-        return AuthorizationDecision(True, agent, tool, "; ".join(permitted))
+        return AuthorizationDecision(
+            True, agent, name, "; ".join(permitted), tuple(permit_ids)
+        )
 
     def authorize(self, agent: str, request: CedarRequest, cedar_context: dict):
         # Structured uids: resource ids come from LLM output and must never be
@@ -127,6 +194,23 @@ class ReferenceMonitor:
             ]
 
         raise ValueError(f"tool {tool!r} is not mediated by the reference monitor")
+
+    @staticmethod
+    def _call_targets(args: Dict[str, Any]) -> Dict[str, str]:
+        """Targets named by the call, compared with the bound operation."""
+        return {
+            "call_customer": str(args.get("customer_id", "")).strip(),
+            "call_value": str(args.get("value", "")).strip().lower(),
+            "call_recipient": normalize_address(args.get("to", "")),
+        }
+
+    @staticmethod
+    def _operation(name: str) -> str:
+        # Unknown operations fail closed, like unknown fields: a missing
+        # entity would make the forbid policies on it skip.
+        if name not in OPERATION_EVIDENCE:
+            raise ValueError(f"unknown operation {name!r}")
+        return name
 
     @staticmethod
     def _field(name: str) -> str:

@@ -1,8 +1,17 @@
-entity Agent;
+// Roles group agents for grants (e.g. Role::"Analyst").
+entity Role;
+entity Agent in [Role];
+
+// CRM operation an analysis can describe. evidence: words a request must
+// contain for the operation to be derived from it (validation.cedar).
+entity Operation {
+  evidence: Set<String>,
+};
 
 // classification: 0 = PUBLIC, 1 = INTERNAL, 2 = CONFIDENTIAL
 entity Field {
   classification: Long,
+  name: String,
 };
 
 entity Customer;
@@ -17,6 +26,46 @@ type ToolRequestContext = {
   // confidentiality: 0 = PUBLIC, 1 = INTERNAL, 2 = CONFIDENTIAL
   conf: Long,
   provenance: Set<String>,
+  // Operation binding (binding.cedar). What the executor agent was asked to
+  // execute, set by the graph node from the state ("" for other agents)...
+  operation: String,
+  target_customer: String,
+  requested_fields: Set<String>,
+  requested_value: String,
+  requested_recipient: String,
+  // ...and the targets the call itself names.
+  call_customer: String,
+  call_value: String,
+  call_recipient: String,
+};
+
+// Context of check_analysis: an analysis (structured CRM operation derived
+// by an analyst from a request), facts about that request, and the analyst.
+type AnalysisContext = {
+  // label of the analyst's context
+  integrity: Long,
+  conf: Long,
+  provenance: Set<String>,
+  // the analysis (canonical form, engine/facts.py)
+  customer_id: String,
+  fields: Set<String>,
+  field_count: Long,
+  value: String,
+  recipient: String,
+  // the request it was derived from
+  request_words: Set<String>,
+  request_numbers: Set<String>,
+  request_addresses: Set<String>,
+  value_in_request: Bool,
+  // calls of the analyst the monitor denied during this analysis
+  denied_calls: Long,
+};
+
+// Context of adopt_analysis: the analysis becomes the operation the
+// executors run.
+type AdoptionContext = {
+  // checked analyses of the same request that describe another operation
+  conflicting_analyses: Long,
 };
 
 // Action groups
@@ -45,4 +94,16 @@ action "send_email" in ["egress"] appliesTo {
   principal: Agent,
   resource: Recipient,
   context: ToolRequestContext,
+};
+
+action "check_analysis" appliesTo {
+  principal: Agent,
+  resource: Operation,
+  context: AnalysisContext,
+};
+
+action "adopt_analysis" appliesTo {
+  principal: Agent,
+  resource: Operation,
+  context: AdoptionContext,
 };

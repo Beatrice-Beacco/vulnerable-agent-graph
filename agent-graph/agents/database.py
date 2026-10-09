@@ -1,11 +1,8 @@
-from typing import Any, cast
-
-from langchain.agents import create_agent
 from langchain.messages import ToolMessage
 
 from tools.crm import read_customer, write_customer, delete_customer
-from security.authorization_middleware import CedarAuthorizationMiddleware
-from security.security_context import SecurityContext, build_security_context
+from agents.base import build_agent
+from security.security_context import OperationBinding, build_security_context
 
 SYSTEM_PROMPT = """
 You are a CRM execution agent.
@@ -28,17 +25,12 @@ send_customer_data: read ONLY the requested fields with the read_customer
 
 
 def create_database_agent(llm):
-    agent = create_agent(
-        model=llm,
-        system_prompt=SYSTEM_PROMPT,
+    return build_agent(
+        llm,
+        "DatabaseAgent",
+        SYSTEM_PROMPT,
         tools=[read_customer, write_customer, delete_customer],
-        middleware=cast(
-            Any,
-            [CedarAuthorizationMiddleware(agent_id="DatabaseAgent")],
-        ),
-        context_schema=SecurityContext,
     )
-    return agent
 
 
 def run_database_node(state, database_agent):
@@ -54,7 +46,9 @@ def run_database_node(state, database_agent):
 
     # Label of everything the agent receives: the monitor updates it with
     # the output of every tool call.
-    context = build_security_context(fields, origin="DatabaseAgent")
+    context = build_security_context(
+        fields, origin="DatabaseAgent", binding=OperationBinding.of(state)
+    )
 
     print(
         "Database fields:",

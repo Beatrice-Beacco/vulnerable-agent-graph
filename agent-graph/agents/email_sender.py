@@ -1,10 +1,7 @@
-from typing import Any, cast
-
-from langchain.agents import create_agent
 
 from tools.email import send_email
-from security.authorization_middleware import CedarAuthorizationMiddleware
-from security.security_context import SecurityContext, build_security_context
+from agents.base import build_agent
+from security.security_context import OperationBinding, build_security_context
 
 SYSTEM_PROMPT = """
 You are an email agent.
@@ -20,17 +17,7 @@ Rules:
 
 
 def create_email_sender_agent(llm):
-    agent = create_agent(
-        model=llm,
-        system_prompt=SYSTEM_PROMPT,
-        tools=[send_email],
-        middleware=cast(
-            Any,
-            [CedarAuthorizationMiddleware(agent_id="EmailAgent")],
-        ),
-        context_schema=SecurityContext,
-    )
-    return agent
+    return build_agent(llm, "EmailAgent", SYSTEM_PROMPT, tools=[send_email])
 
 
 def run_email_sender_node(state, email_sender_agent):
@@ -47,7 +34,9 @@ def run_email_sender_node(state, email_sender_agent):
 
     # The customer data carries the label assigned by the database agent: a
     # confidential field read there makes this whole context confidential.
-    context = build_security_context(fields, origin="EmailAgent")
+    context = build_security_context(
+        fields, origin="EmailAgent", binding=OperationBinding.of(state)
+    )
 
     print(
         "Email fields:",

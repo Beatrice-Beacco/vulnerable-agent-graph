@@ -135,3 +135,7 @@ class GraphState(TypedDict):
 
     # ---- Result of the email agent ----
     email_status: str
+
+    # ---- Result of the analysis step (triage / parser) ----
+    # "rejected" stops the run before any CRM operation (agents/analysis.py).
+    analysis_status: str

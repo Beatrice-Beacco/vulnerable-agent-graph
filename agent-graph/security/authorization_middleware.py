@@ -2,6 +2,7 @@ from engine.engine import ReferenceMonitor
 from langchain.agents.middleware import AgentMiddleware
 from security.security_context import SecurityContext, build_security_context
 from security.tool_labels import output_label
+from security import trace
 
 monitor = ReferenceMonitor()
 
@@ -42,11 +43,27 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
 
         print(decision)
 
+        call = {
+            "agent": self.agent_id,
+            "tool": tool_name,
+            "args": args,
+            "allowed": decision.allowed,
+            "policies": decision.policies,
+            "reason": decision.reason,
+            "label": trace.context_label(context),
+        }
+
         if not decision.allowed:
+            context.denied_calls += 1
+            trace.event("tool_call", **call, executed=False)
             raise PermissionError(str(decision))
 
         result = handler(request)
 
         context.absorb(output_label(tool_name, args))
+
+        trace.event(
+            "tool_call", **call, executed=True, output=getattr(result, "content", result)
+        )
 
         return result

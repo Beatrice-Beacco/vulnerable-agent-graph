@@ -34,21 +34,59 @@ def load_policies(disabled=frozenset()) -> str:
 
 POLICIES = load_policies(DISABLED_POLICY_FILES)
 
-AGENTS = ["DatabaseAgent", "EmailAgent"]
+# Every agent of the graph is a principal: an attack can hand any of them
+# attacker tools, and only grants.cedar decides which tools each may call.
+AGENTS = [
+    "RouterAgent",
+    "EmailReaderAgent",
+    "TriageAgent",
+    "TriageReviewerAgent",
+    "RequestReaderAgent",
+    "ParserAgent",
+    "ParserReviewerAgent",
+    "ArbiterAgent",
+    "DatabaseAgent",
+    "EmailAgent",
+]
+
+# Agents that derive the CRM operation from a request (check/adopt_analysis).
+ANALYSTS = [
+    "TriageAgent",
+    "TriageReviewerAgent",
+    "ParserAgent",
+    "ParserReviewerAgent",
+    "ArbiterAgent",
+]
+
+# Words a request must contain for an operation to be derived from it
+# (resource.evidence in validation.cedar).
+OPERATION_EVIDENCE = {
+    "delete_customer": ["delete", "remove", "cancel", "close", "deactivate", "terminate", "erase"],
+    "update_customer": ["update", "change", "set", "modify", "correct"],
+    "send_customer_data": ["send", "forward", "share", "provide", "tell"],
+}
 
 
-def entity(entity_type: str, entity_id: str, attrs=None) -> dict:
+def entity(entity_type: str, entity_id: str, attrs=None, parents=()) -> dict:
     return {
         "uid": {"type": entity_type, "id": entity_id},
         "attrs": attrs or {},
-        "parents": [],
+        "parents": [{"type": t, "id": i} for t, i in parents],
     }
 
 
 ENTITIES = [
-    *(entity("Agent", agent) for agent in AGENTS),
+    entity("Role", "Analyst"),
     *(
-        entity("Field", name, {"classification": int(level)})
+        entity("Agent", agent, parents=[("Role", "Analyst")] if agent in ANALYSTS else [])
+        for agent in AGENTS
+    ),
+    *(
+        entity("Operation", name, {"evidence": words})
+        for name, words in OPERATION_EVIDENCE.items()
+    ),
+    *(
+        entity("Field", name, {"classification": int(level), "name": name})
         for name, level in FIELD_CLASSIFICATION.items()
     ),
 ]

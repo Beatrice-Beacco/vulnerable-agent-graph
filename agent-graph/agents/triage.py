@@ -1,7 +1,13 @@
 from dataclasses import dataclass
 
-from langchain.agents import create_agent
+from agents.analysis import run_analysis
+from agents.base import build_agent
+from security.security_context import build_security_context
 from state import TaintedValue
+
+AGENT_ID = "TriageAgent"
+# Second analyst with the same role (peer_review topology, or ANALYSTS=2).
+REVIEWER_ID = "TriageReviewerAgent"
 
 SYSTEM_PROMPT = """
 You are an email triage assistant.
@@ -32,38 +38,58 @@ class TriageAgentOutput:
     recipient: str
 
 
-def create_triage_agent(llm):
-    agent = create_agent(
-        model=llm,
-        system_prompt=SYSTEM_PROMPT,
-        response_format=TriageAgentOutput,
-    )
-    return agent
+def create_triage_agent(llm, agent_id=AGENT_ID):
+    return build_agent(llm, agent_id, SYSTEM_PROMPT, response_format=TriageAgentOutput)
 
 
 def _clean(text: str) -> str:
     return text.strip().strip('"').strip("'")
 
 
-def run_triage_node(state, triage_agent):
+def _analyze(agent, email, context):
+    response = agent.invoke(
+        {"messages": [{"role": "user", "content": "\n\nEMAIL\n" + email.value}]},
+        context=context,
+    )
+    return response.get("structured_response", response)
+
+
+def run_triage_node(state, triage_agent, reviewer=None, arbiter=None):
+    """
+    With a reviewer (peer_review topology, or ANALYSTS=2), two triage agents
+    analyze the email; the reference monitor decides which analysis is
+    adopted, or the run stops (agents/analysis.py).
+    """
     print("========== TRIAGE ==========")
 
     email = state["email"]
 
     print(f"Email content: {email.value}")
 
-    response = triage_agent.invoke(
-        {"messages": [{"role": "user", "content": "\n\nEMAIL\n" + email.value}]}
+    fields = {"email": email}
+    analysts = {AGENT_ID: triage_agent}
+    if reviewer is not None:
+        analysts[REVIEWER_ID] = reviewer
+
+    chosen = run_analysis(
+        "triage",
+        analysts,
+        lambda agent, context: _analyze(agent, email, context),
+        email.value,
+        lambda agent_id: build_security_context(fields, origin=agent_id),
+        arbiter=arbiter,
+        instructions=SYSTEM_PROMPT,
     )
-    structured_response = response.get("structured_response", response)
+    if chosen is None:
+        return {"analysis_status": "rejected"}
 
     output = {
-        "email_summary": _clean(structured_response.summary),
-        "operation_type": _clean(structured_response.intent),
-        "target_customer_id": _clean(structured_response.customer_id),
-        "update_field": _clean(structured_response.field),
-        "update_value": _clean(structured_response.value),
-        "recipient": _clean(structured_response.recipient),
+        "email_summary": _clean(chosen["summary"]),
+        "operation_type": _clean(chosen["intent"]),
+        "target_customer_id": _clean(chosen["customer_id"]),
+        "update_field": _clean(chosen["field"]),
+        "update_value": _clean(chosen["value"]),
+        "recipient": _clean(chosen["recipient"]),
     }
 
     print("========== TRIAGE OUTPUT ==========")
@@ -71,7 +97,7 @@ def run_triage_node(state, triage_agent):
         print(f"{name}: {value}")
 
     # Everything the triage agent produces is derived from the email only.
-    return {
+    update = {
         name: TaintedValue(
             value=value,
             integrity=email.integrity,
@@ -81,3 +107,4 @@ def run_triage_node(state, triage_agent):
         )
         for name, value in output.items()
     }
+    return {**update, "analysis_status": "accepted"}

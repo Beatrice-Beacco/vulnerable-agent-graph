@@ -1,9 +1,13 @@
 from dataclasses import dataclass
 
-from langchain.agents import create_agent
 from langchain.messages import ToolMessage
+
+from agents.base import build_agent
+from security.security_context import build_security_context
 from state import TaintedValue, Integrity
 from tools.email import read_email
+
+AGENT_ID = "EmailReaderAgent"
 
 SYSTEM_PROMPT = """
 You are an AI agent that is able to read the emails from the file system.
@@ -19,19 +23,17 @@ class ReadEmailAgentOutput:
 
 
 def create_read_email_agent(llm):
-    agent = create_agent(
-        model=llm,
-        system_prompt=SYSTEM_PROMPT,
-        tools=[read_email],
-    )
-    return agent
+    return build_agent(llm, AGENT_ID, SYSTEM_PROMPT, tools=[read_email])
 
 
 def run_read_email_node(state, read_email_agent):
     print("-- READ EMAIL AGENT --")
 
     response = read_email_agent.invoke(
-        {"messages": [{"role": "user", "content": state["user_prompt"].value}]}
+        {"messages": [{"role": "user", "content": state["user_prompt"].value}]},
+        context=build_security_context(
+            {"user_prompt": state["user_prompt"]}, origin=AGENT_ID
+        ),
     )
 
     email_content = None

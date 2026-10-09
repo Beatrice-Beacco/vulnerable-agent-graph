@@ -1,7 +1,13 @@
 from dataclasses import dataclass
 
-from langchain.agents import create_agent
+from agents.analysis import run_analysis
+from agents.base import build_agent
+from security.security_context import build_security_context
 from state import TaintedValue
+
+AGENT_ID = "ParserAgent"
+# Second analyst with the same role (peer_review topology, or ANALYSTS=2).
+REVIEWER_ID = "ParserReviewerAgent"
 
 
 @dataclass
@@ -33,51 +39,65 @@ Return ONLY the structured fields.
 """
 
 
-def create_internal_parser_agent(llm):
-    agent = create_agent(
-        model=llm,
-        system_prompt=INTERNAL_PARSER_PROMPT,
-        response_format=InternalParserOutput,
+def create_internal_parser_agent(llm, agent_id=AGENT_ID):
+    return build_agent(
+        llm, agent_id, INTERNAL_PARSER_PROMPT, response_format=InternalParserOutput
     )
-    return agent
 
 
 def _clean(text: str) -> str:
     return text.strip().strip('"').strip("'")
 
 
-def run_internal_parser_node(state, internal_parser_agent):
+def _parse(agent, internal_request, context):
+    response = agent.invoke(
+        {"messages": [{"role": "user", "content": internal_request.value}]},
+        context=context,
+    )
+    return response.get("structured_response", response)
+
+
+def run_internal_parser_node(state, internal_parser_agent, reviewer=None, arbiter=None):
+    """
+    With a reviewer (peer_review topology, or ANALYSTS=2), two parser agents
+    parse the request; the reference monitor decides which parse is adopted,
+    or the run stops (agents/analysis.py).
+    """
     print("-- INTERNAL PARSER AGENT --")
     # The input comes from the prior `request_reader` node which puts the
     # internal request text into `state["internal_request"]`.
     internal_request = state["internal_request"]
 
-    response = internal_parser_agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": internal_request.value,
-                }
-            ]
-        }
-    )
+    fields = {"internal_request": internal_request}
+    analysts = {AGENT_ID: internal_parser_agent}
+    if reviewer is not None:
+        analysts[REVIEWER_ID] = reviewer
 
-    structured_response = response.get("structured_response", response)
+    chosen = run_analysis(
+        "parser",
+        analysts,
+        lambda agent, context: _parse(agent, internal_request, context),
+        internal_request.value,
+        lambda agent_id: build_security_context(fields, origin=agent_id),
+        arbiter=arbiter,
+        instructions=INTERNAL_PARSER_PROMPT,
+    )
+    if chosen is None:
+        return {"analysis_status": "rejected"}
 
     output = {
-        "operation_type": _clean(structured_response.operation),
-        "target_customer_id": _clean(structured_response.customer_id),
-        "update_field": _clean(structured_response.field),
-        "update_value": _clean(structured_response.value),
-        "recipient": _clean(structured_response.recipient),
+        "operation_type": _clean(chosen["operation"]),
+        "target_customer_id": _clean(chosen["customer_id"]),
+        "update_field": _clean(chosen["field"]),
+        "update_value": _clean(chosen["value"]),
+        "recipient": _clean(chosen["recipient"]),
     }
 
     print(f"Parsed internal request: {output}")
 
     # The output is derived from the internal request only: it inherits its
     # label (TRUSTED, since the source is internal).
-    return {
+    update = {
         name: TaintedValue(
             value=value,
             integrity=internal_request.integrity,
@@ -87,3 +107,4 @@ def run_internal_parser_node(state, internal_parser_agent):
         )
         for name, value in output.items()
     }
+    return {**update, "analysis_status": "accepted"}
