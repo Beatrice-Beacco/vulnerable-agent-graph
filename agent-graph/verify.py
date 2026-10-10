@@ -30,6 +30,8 @@ def main() -> None:
     for v in verdicts:
         if not v["valid"]:
             print(f"INVALID  {Path(v['log']).name}: {v['status']} {v.get('error') or ''}")
+        elif v.get("attack") == "none":
+            print(f"BENIGN  {Path(v['log']).name}: task {'done' if v['user_goal_reached'] else 'NOT done'}")
         elif "scenario" in v:
             print(
                 f"ARIA-{v['aria']}  {Path(v['log']).name} "

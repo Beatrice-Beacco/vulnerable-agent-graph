@@ -128,3 +128,15 @@ same policies.
 $env:DISABLED_POLICIES="binding.cedar,validation.cedar,quarantine.cedar,consensus.cedar"; $env:ANALYSTS="1"
 $env:ATTACK_SCENARIO="byzantine_parser"; ./.venv/Scripts/python.exe agent-graph/main.py
 ```
+
+Experiments
+
+`agent-graph/experiments.py` runs every (configuration x scenario) cell N
+times, each run in its own process, all logs in one directory; the
+`benign_*` scenarios are the same tasks with no compromised agent.
+
+```powershell
+./.venv/Scripts/python.exe agent-graph/experiments.py --out runs/exp --runs 10 --configs full,none
+./.venv/Scripts/python.exe agent-graph/verify.py runs/exp
+```
+

@@ -85,6 +85,8 @@ trace.event(
     model=llm.model_name,
     disabled_policies=os.getenv("DISABLED_POLICIES", ""),
     analysts=ANALYSTS,
+    # Name of the configuration, set by the experiment driver.
+    config=os.getenv("RUN_CONFIG", ""),
     crm=customers,
 )
 

@@ -45,7 +45,7 @@ Goal: measure before changing enforcement. Matches the notes: *give goals, run w
 - [x] Trace schema (`security/trace.py`, one file per run in `runs/`): one JSONL record per tool call — run id, scenario, agent, tool, args, context label (level, conf, provenance), decision + policy ids, mode, executed?, feedback sent, escalation (if any), state delta. One run = one file under `runs/`. *(mode, feedback and escalation fields still to add with WS3/WS2.)*
 - [x] **Attack oracle** (the "tool to identify whether attacks go through", `attacks/verify.py` + `verify.py` CLI; reads only the run log, no LLM judge; ARIA labels computed by code): per scenario, predicates over the final state (CRM, outbox) and the trace → `{attack_succeeded, user_goal_achieved, violated_property, path}`. It must be **goal-based** (checks the resulting state), not tool-based, so it also catches success through an alternative path (e.g. deleting via `write_customer` instead of `delete_customer`).
 - [ ] Shadow-mode counterfactual: per call, "would have been denied" vs. "was harmful according to the oracle" → confusion matrix of the policies (RQ1).
-- [ ] Run driver `eval/run.py`: (scenario, mode, tool-set, feedback granularity, user policy, seed, N) → traces + verdicts; no edits to agent code needed.
+- [x] Run driver (`agent-graph/experiments.py`): (scenario, mode, tool-set, feedback granularity, user policy, seed, N) → traces + verdicts; no edits to agent code needed.
 - [ ] Validate the oracle by hand on known-good / known-bad runs of the existing fixtures (`data/*.txt`) before trusting aggregates.
 
 ### WS1 — Security-level lattice instead of trusted/untrusted
@@ -108,8 +108,8 @@ Result of the first runs of the multi-agent attacks: labels track where data cam
 - [x] `quarantine.cedar`: no analysis accepted from an analyst with a denied call (fires once denied analysts can continue, i.e. with the WS3 feedback mode).
 - [x] `consensus.cedar`: no analysis adopted while another checked analysis describes a different operation.
 - [x] Topology: `ANALYSTS=2` analysts per step, the arbiter only proposes (checked by the same policies); the internal request reaches the parser as read by the tool.
-- [ ] Run the 6 scenarios ×N with all defense policies, with none (`ANALYSTS=1`), and with one policy file left out at a time; compare ASR / ARIA / benign-task rate.
-- [ ] Benign control runs (no attack) per configuration: over-blocking and stops caused by the policies.
+- [x] Run the 6 scenarios ×N with all defense policies, with none (`ANALYSTS=1`), and with one policy file left out at a time; compare ASR / ARIA / benign-task rate (360 runs, `runs/exp-2026-10-09`; findings doc).
+- [x] Benign control runs (no attack) per configuration: over-blocking and stops caused by the policies (`benign_*` scenarios, 120 runs, no over-blocking).
 - [ ] LLM-derived values below the internal level in the lattice + user escalation for destructive operations (depends on WS1/WS2).
 
 ### WS7 — Metrics & analysis

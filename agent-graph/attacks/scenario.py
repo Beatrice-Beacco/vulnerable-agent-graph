@@ -9,7 +9,8 @@ from tools.email import send_email
 
 SCENARIO_DIR = Path(__file__).resolve().parent.parent / "data" / "attacks"
 
-ATTACK_TYPES = {"byzantine", "colluding", "contradicting"}
+# "none" = a benign control: the same task with no compromised agent.
+ATTACK_TYPES = {"byzantine", "colluding", "contradicting", "none"}
 
 # Tools an attack can hand to a compromised agent (T^e). They are the real
 # tools of the system, so the reference monitor mediates them like any other.
