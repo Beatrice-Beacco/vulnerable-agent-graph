@@ -6,6 +6,8 @@ from security.directory import normalize_address, recipient_clearance
 from security.security_context import SecurityContext
 from tools.crm import FIELD_CLASSIFICATION, requested_fields
 
+from tools.crm import customers
+
 from .facts import canonical, request_facts
 from .schema import ENTITIES, OPERATION_EVIDENCE, POLICIES, SCHEMA, entity
 
@@ -65,6 +67,13 @@ class ReferenceMonitor:
             return AuthorizationDecision(False, agent, tool, str(exc))
 
         cedar_context = {**context.to_cedar_context(), **self._call_targets(args)}
+        # data_subject.cedar: is the recipient the bound customer's own address?
+        registered = normalize_address(
+            customers.get(cedar_context["target_customer"], {}).get("email", "")
+        )
+        cedar_context["recipient_is_customer_contact"] = bool(registered) and (
+            cedar_context["call_recipient"] == registered
+        )
         print("CEDAR context:", cedar_context)
 
         return self._decide(agent, tool, requests, cedar_context)
@@ -100,21 +109,34 @@ class ReferenceMonitor:
         return self._decide(agent, "check_analysis", [request_], cedar_context)
 
     def adopt_analysis(
-        self, agent: str, analysis: dict, conflicting: int
+        self, agent: str, analysis: dict, conflicting: int, request: str
     ) -> AuthorizationDecision:
         """
         Authorizes a checked analysis to become the operation the executors
         run, given how many other checked analyses describe another one
-        (consensus.cedar).
+        (consensus.cedar) and how many operations the request supports
+        (disambiguation.cedar).
         """
         try:
             resource = self._operation(canonical(analysis)["operation"])
         except ValueError as exc:
             return AuthorizationDecision(False, agent, "adopt_analysis", str(exc))
-        request = CedarRequest("adopt_analysis", "Operation", resource)
+        cedar_request = CedarRequest("adopt_analysis", "Operation", resource)
         return self._decide(
-            agent, "adopt_analysis", [request], {"conflicting_analyses": conflicting}
+            agent,
+            "adopt_analysis",
+            [cedar_request],
+            {
+                "conflicting_analyses": conflicting,
+                "operations_in_request": self._operations_in_request(request),
+            },
         )
+
+    @staticmethod
+    def _operations_in_request(request: str) -> int:
+        """How many of the three operations the request supports by its words."""
+        words = set(request_facts(request, "")["request_words"])
+        return sum(1 for evidence in OPERATION_EVIDENCE.values() if set(evidence) & words)
 
     def _decide(
         self, agent: str, name: str, requests: list, cedar_context: dict

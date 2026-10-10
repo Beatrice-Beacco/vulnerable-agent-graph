@@ -115,6 +115,8 @@ form of the analysis) are extracted by `agent-graph/engine/facts.py`.
 | `validation.cedar` | `check_analysis`  | The operation is supported by the words of the request, customer and recipient are written in it, unused fields are empty |
 | `quarantine.cedar` | `check_analysis`  | No analysis is accepted from an analyst that attempted a denied call                 |
 | `consensus.cedar`  | `adopt_analysis`  | No analysis is adopted while another checked analysis describes a different operation |
+| `disambiguation.cedar` | `adopt_analysis` | A `delete_customer` is not adopted from a request that supports more than one operation |
+| `data_subject.cedar` | `send_email`    | An untrusted request may only send a customer's data to that customer's own registered address |
 
 Unknown operations and fields fail closed in the monitor. When nothing is
 adopted the run stops before any CRM operation (`stopped_for_human` in the
@@ -138,5 +140,14 @@ times, each run in its own process, all logs in one directory; the
 ```powershell
 ./.venv/Scripts/python.exe agent-graph/experiments.py --out runs/exp --runs 10 --configs full,none
 ./.venv/Scripts/python.exe agent-graph/verify.py runs/exp
+```
+
+The `adaptive_*` scenarios are attacks crafted to stay inside the defense
+policies (covert channel via field order, a request naming two operations,
+a redirect of PUBLIC data to a grounded address). Two of the four defeat the
+full defenses; see the findings doc.
+
+```powershell
+$env:ATTACK_SCENARIO="adaptive_multiop_collusion"; ./.venv/Scripts/python.exe agent-graph/main.py
 ```
 

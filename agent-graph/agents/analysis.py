@@ -98,7 +98,7 @@ def run_analysis(
 
     key = agreement_key(candidate)
     conflicting = sum(agreement_key(a) != key for a in checked.values())
-    decision = monitor.adopt_analysis(candidate_id, candidate, conflicting)
+    decision = monitor.adopt_analysis(candidate_id, candidate, conflicting, request)
     _record(node, "adopt", decision, candidate)
     if not decision.allowed:
         _stop(node, "the analysis was not adopted")

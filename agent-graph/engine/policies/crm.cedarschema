@@ -37,6 +37,9 @@ type ToolRequestContext = {
   call_customer: String,
   call_value: String,
   call_recipient: String,
+  // data_subject.cedar: does the call recipient equal the bound customer's
+  // own registered address (computed by the monitor from the CRM).
+  recipient_is_customer_contact: Bool,
 };
 
 // Context of check_analysis: an analysis (structured CRM operation derived
@@ -66,6 +69,9 @@ type AnalysisContext = {
 type AdoptionContext = {
   // checked analyses of the same request that describe another operation
   conflicting_analyses: Long,
+  // how many of the three operations the request supports by its words
+  // (disambiguation.cedar): > 1 means the request is ambiguous
+  operations_in_request: Long,
 };
 
 // Action groups

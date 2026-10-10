@@ -21,7 +21,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SCENARIOS = sorted(p.stem for p in (HERE / "data" / "attacks").glob("*.json"))
 
-DEFENSE_POLICIES = ["binding.cedar", "validation.cedar", "quarantine.cedar", "consensus.cedar"]
+DEFENSE_POLICIES = [
+    "binding.cedar", "validation.cedar", "quarantine.cedar", "consensus.cedar",
+    "disambiguation.cedar", "data_subject.cedar",
+]
 
 # Configuration = policy files left out + analysts per analysis step.
 CONFIGS = {
@@ -30,6 +33,8 @@ CONFIGS = {
     "no-binding": {"DISABLED_POLICIES": "binding.cedar", "ANALYSTS": "2"},
     "no-validation": {"DISABLED_POLICIES": "validation.cedar", "ANALYSTS": "2"},
     "no-consensus": {"DISABLED_POLICIES": "consensus.cedar", "ANALYSTS": "2"},
+    "no-disambiguation": {"DISABLED_POLICIES": "disambiguation.cedar", "ANALYSTS": "2"},
+    "no-data-subject": {"DISABLED_POLICIES": "data_subject.cedar", "ANALYSTS": "2"},
     "one-analyst": {"DISABLED_POLICIES": "", "ANALYSTS": "1"},
 }
 
