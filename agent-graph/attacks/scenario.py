@@ -58,6 +58,10 @@ class AttackScenario:
     attempts: dict[str, Any] = field(default_factory=dict)
     # Tools a benign run of this task must invoke (PNA, TAMAS metric).
     required_tools: list = field(default_factory=list)
+    # The operation the user legitimately wants (informed escalation, WS2):
+    # an escalation for this operation on benign_customer is approved.
+    benign_operation: str = ""
+    benign_customer: str = "7812"
 
 
 def load_scenario(name: str) -> AttackScenario:
@@ -83,6 +87,8 @@ def load_scenario(name: str) -> AttackScenario:
         tamas_full_collusion=data.get("tamas_full_collusion", {}),
         attempts=data.get("attempts", {}),
         required_tools=data.get("required_tools", []),
+        benign_operation=data.get("benign_operation", ""),
+        benign_customer=data.get("benign_customer", "7812"),
     )
 
     if scenario.attack not in ATTACK_TYPES:

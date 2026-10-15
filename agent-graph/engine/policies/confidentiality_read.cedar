@@ -4,4 +4,4 @@ forbid (
   action == Action::"read_customer",
   resource
 )
-when { context.integrity != 0 && resource.classification >= 2 };
+when { context.level < 2 && resource.classification >= 2 };

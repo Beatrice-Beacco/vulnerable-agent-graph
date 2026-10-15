@@ -26,6 +26,11 @@ DEFENSE_POLICIES = [
     "disambiguation.cedar", "data_subject.cedar",
 ]
 
+# The analysis-layer defenses (the core lattice + confidentiality + grants
+# stay on): disabling these leaves the level gate and escalation as the only
+# control over mutations.
+_ANALYSIS = ",".join(DEFENSE_POLICIES)
+
 # Configuration = policy files left out + analysts per analysis step.
 CONFIGS = {
     "full": {"DISABLED_POLICIES": "", "ANALYSTS": "2"},
@@ -36,6 +41,14 @@ CONFIGS = {
     "no-disambiguation": {"DISABLED_POLICIES": "disambiguation.cedar", "ANALYSTS": "2"},
     "no-data-subject": {"DISABLED_POLICIES": "data_subject.cedar", "ANALYSTS": "2"},
     "one-analyst": {"DISABLED_POLICIES": "", "ANALYSTS": "1"},
+    # Escalation (WS2): full defenses, with each simulated user policy.
+    "full-approve": {"DISABLED_POLICIES": "", "ANALYSTS": "2", "USER_POLICY": "always_approve"},
+    "full-deny": {"DISABLED_POLICIES": "", "ANALYSTS": "2", "USER_POLICY": "always_deny"},
+    "full-informed": {"DISABLED_POLICIES": "", "ANALYSTS": "2", "USER_POLICY": "informed"},
+    # Lattice + escalation as the only defense (analysis layer off).
+    "lattice-approve": {"DISABLED_POLICIES": _ANALYSIS, "ANALYSTS": "1", "USER_POLICY": "always_approve"},
+    "lattice-deny": {"DISABLED_POLICIES": _ANALYSIS, "ANALYSTS": "1", "USER_POLICY": "always_deny"},
+    "lattice-informed": {"DISABLED_POLICIES": _ANALYSIS, "ANALYSTS": "1", "USER_POLICY": "informed"},
 }
 
 

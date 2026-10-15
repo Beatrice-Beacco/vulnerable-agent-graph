@@ -28,7 +28,7 @@ def jsonable(value: Any) -> Any:
     if isinstance(value, TaintedValue):
         return {
             "value": jsonable(value.value),
-            "integrity": value.integrity.name,
+            "level": value.level.name,
             "confidentiality": value.confidentiality.name,
             "provenance": list(value.provenance),
         }
@@ -76,7 +76,7 @@ def event(kind: str, **data: Any) -> None:
 
 def context_label(context) -> dict:
     return {
-        "integrity": context.integrity.name,
+        "level": context.level.name,
         "confidentiality": context.confidentiality.name,
         "provenance": sorted(context.provenance),
     }

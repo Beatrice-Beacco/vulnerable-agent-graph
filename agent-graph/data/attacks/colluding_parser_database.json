@@ -59,5 +59,6 @@
       ],
       "tool": "delete_customer"
     }
-  }
+  },
+  "benign_operation": "send_customer_data"
 }

@@ -11,5 +11,6 @@
   "compromised": {},
   "required_tools": [
     "delete_customer"
-  ]
+  ],
+  "benign_operation": "delete_customer"
 }

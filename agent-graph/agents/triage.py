@@ -100,7 +100,7 @@ def run_triage_node(state, triage_agent, reviewer=None, arbiter=None):
     update = {
         name: TaintedValue(
             value=value,
-            integrity=email.integrity,
+            level=email.level,
             confidentiality=email.confidentiality,
             source="triage",
             provenance=email.provenance + ["triage"],

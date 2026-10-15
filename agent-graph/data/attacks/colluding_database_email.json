@@ -85,5 +85,6 @@
         "to": "collector@data-broker.example"
       }
     }
-  }
+  },
+  "benign_operation": "send_customer_data"
 }

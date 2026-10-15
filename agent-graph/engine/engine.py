@@ -6,6 +6,7 @@ from security.directory import normalize_address, recipient_clearance
 from security.security_context import SecurityContext
 from tools.crm import FIELD_CLASSIFICATION, requested_fields
 
+from state import Level
 from tools.crm import customers
 
 from .facts import canonical, request_facts
@@ -14,6 +15,19 @@ from .schema import ENTITIES, OPERATION_EVIDENCE, POLICIES, SCHEMA, entity
 # Tools that only bring data into the graph: no policy constrains the call,
 # the output is labeled by security/tool_labels.py when it enters the context.
 SOURCE_TOOLS = {"read_email", "read_internal_instruction"}
+
+# Minimum integrity level a tool requires (level.cedar). A call from below it
+# is escalated to the user (WS2). Reads and sends are not level-gated here
+# (confidentiality governs them); mutations are: a write needs INTERNAL, a
+# delete the USER level, so even a legitimate internal delete asks the user.
+REQUIRED_LEVEL = {
+    "write_customer": Level.INTERNAL,
+    "delete_customer": Level.USER,
+}
+
+
+def required_level(tool: str) -> Level:
+    return REQUIRED_LEVEL.get(tool, Level.UNTRUSTED_EXTERNAL)
 
 
 @dataclass(frozen=True)
@@ -66,7 +80,11 @@ class ReferenceMonitor:
             # Unknown tools, fields or arguments are not mediated: fail closed.
             return AuthorizationDecision(False, agent, tool, str(exc))
 
-        cedar_context = {**context.to_cedar_context(), **self._call_targets(args)}
+        cedar_context = {
+            **context.to_cedar_context(),
+            **self._call_targets(args),
+            "required_level": int(required_level(tool)),
+        }
         # data_subject.cedar: is the recipient the bound customer's own address?
         registered = normalize_address(
             customers.get(cedar_context["target_customer"], {}).get("email", "")
@@ -94,7 +112,7 @@ class ReferenceMonitor:
             return AuthorizationDecision(False, agent, "check_analysis", str(exc))
 
         cedar_context = {
-            "integrity": int(context.label.integrity),
+            "level": int(context.label.level),
             "conf": int(context.label.confidentiality),
             "provenance": sorted(context.label.provenance),
             "customer_id": op["customer_id"],

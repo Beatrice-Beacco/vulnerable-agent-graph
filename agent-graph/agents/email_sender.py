@@ -41,7 +41,7 @@ def run_email_sender_node(state, email_sender_agent):
     print(
         "Email fields:",
         {name: value.value for name, value in fields.items()},
-        f"[{context.integrity.name}, {context.confidentiality.name}]",
+        f"[{context.level.name}, {context.confidentiality.name}]",
     )
 
     try:

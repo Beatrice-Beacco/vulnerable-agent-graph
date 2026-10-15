@@ -49,22 +49,22 @@ Goal: measure before changing enforcement. Matches the notes: *give goals, run w
 - [ ] Validate the oracle by hand on known-good / known-bad runs of the existing fixtures (`data/*.txt`) before trusting aggregates.
 
 ### WS1 — Security-level lattice instead of trusted/untrusted
-Goal: replace the binary integrity axis with a configurable lattice of levels.
-- [ ] Define the levels, e.g. `UNTRUSTED_EXTERNAL < EXTERNAL_KNOWN < INTERNAL < USER < SYSTEM` (higher = more trusted). A data item carries a level; the context level is the **meet** of the levels of everything it has read (reading lower-level data lowers it — "if the agent reads tainted data, the level drops").
-- [ ] Data-driven lattice (small `Lattice` class: order, join/meet), so it can be swapped without touching call sites; refactor `Integrity`/`join_integrity`/`Label` accordingly.
-- [ ] Per-tool **required level** (tool registry, also in Cedar as a resource/action attribute); policy: `context.level >= required_level`. Confidentiality lattice unchanged.
-- [ ] Cedar schema: `level: Long` in `ToolRequestContext`; port `integrity.cedar` / `confidentiality_read.cedar` to levels.
-- [ ] Unit tests for order/meet/join; **regression guard**: the 2-level configuration reproduces today's decisions on all existing fixtures.
+Goal: replace the binary integrity axis with a lattice of levels. Done (findings doc: "Security-level lattice and escalation").
+- [x] Levels `UNTRUSTED_EXTERNAL < EXTERNAL_KNOWN < INTERNAL < USER < SYSTEM` (higher = more trusted) in `state.Level`; the context level is the **meet** of everything read (reading lower-level data lowers it — confirmed in a trace).
+- [x] `Integrity`/`join_integrity`/`Label` refactored to `Level`/`meet_level`; source levels set (email `UNTRUSTED_EXTERNAL`, internal/CRM `INTERNAL`, user prompt `USER`).
+- [x] Per-tool **required level** (`engine.REQUIRED_LEVEL`): write `INTERNAL`, delete `USER`, reads/sends ungated; `level.cedar` (`insufficient-level`) subsumes the old `no-untrusted-mutation`.
+- [x] Cedar schema `level: Long` + `required_level` in `ToolRequestContext`; `confidentiality_read.cedar` / `data_subject.cedar` ported to `level`.
+- [x] Offline checks for meet/order and the level gate; regression: 18 runs under full defenses, no attack reached its goal, benign tasks complete.
 
 ### WS2 — Human-in-the-loop escalation
-Goal: when the input level is below what the tool requires, ask the user; if they accept, the level is raised **temporarily**; reading tainted data afterwards lowers it again.
-- [ ] Middleware: on a deny caused *only* by insufficient level → escalation request (tool, args, why the level is low = provenance) instead of a hard deny.
-- [ ] On approval: scoped endorsement — the effective level is raised to the tool's required level **for that single call** (or a bounded scope, configurable); any later `absorb()` of lower-level data lowers it again.
-- [ ] Non-escalatable denials: confidentiality write-down and missing grants (`grants.cedar`) never become a user prompt.
-- [ ] Every escalation in the trace: prompt shown, provenance, decision, scope, what happened next.
-- [ ] Reuse the terminal approval prompt from branch `mcp` for interactive runs.
-- [ ] **Simulated user** for reproducible experiments: `always_deny`, `always_approve`, `informed` (approves iff the oracle says the call serves the user goal). The gap between them measures how much security rests on the user's judgment; also count prompts per run (consent fatigue).
-- Risk: the attacker can target the escalation prompt itself (persuasive justification in the args/reasoning) — record the text the agent puts in front of the user.
+Goal: when the input level is below what the tool requires, ask the user; on approval raise the level **temporarily**; reading tainted data lowers it again. Done.
+- [x] Middleware: a deny caused *only* by insufficient level → escalation (the monitor offers it only when raising the level alone would authorize the call), else hard deny.
+- [x] On approval: scoped to the single call (`SecurityContext.raised_to`); later `absorb()` lowers it again.
+- [x] Non-escalatable: confidentiality and missing grants never prompt (verified: a confidential read and an ungranted agent's delete stay hard denies).
+- [x] Every escalation in the trace (`escalation` event: tool, args, levels, provenance, policy, granted).
+- [x] Interactive console prompt for manual runs (`security/escalation.py`).
+- [x] **Simulated users** (`USER_POLICY`): `always_approve`, `always_deny`, `informed`. 36-run demo: an informed user blocks the attacker's delete and approves the legitimate one; an always-approve user lets the attack through. Consent burden: every legitimate internal delete escalates.
+- [ ] Open: product lattice with confidentiality; bounded multi-call escalation scope; real-user (not oracle-informed) studies; attacker targeting the escalation prompt text.
 
 ### WS3 — Feedback loop to the agent
 Goal: the agent gets the monitor's verdict and we observe whether it tries to formulate a way around it; an attempt to break a policy gets explicit negative feedback.

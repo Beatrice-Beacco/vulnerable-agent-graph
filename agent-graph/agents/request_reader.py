@@ -4,7 +4,7 @@ from langchain.messages import ToolMessage
 
 from agents.base import build_agent
 from security.security_context import build_security_context
-from state import TaintedValue, Integrity
+from state import TaintedValue, Level
 from tools.internal import read_internal_instruction
 
 AGENT_ID = "RequestReaderAgent"
@@ -59,7 +59,7 @@ def run_request_reader_node(state, request_reader_agent):
     return {
         "internal_request": TaintedValue(
             value=content,
-            integrity=Integrity.TRUSTED,
+            level=Level.INTERNAL,
             source="read_internal_instruction",
             provenance=["read_internal_instruction"],
         )

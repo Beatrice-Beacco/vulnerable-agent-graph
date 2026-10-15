@@ -15,5 +15,6 @@
     "read_customer",
     "send_email"
   ],
-  "compromised": {}
+  "compromised": {},
+  "benign_operation": "send_customer_data"
 }

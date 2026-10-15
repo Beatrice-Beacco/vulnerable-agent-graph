@@ -53,7 +53,7 @@ def run_database_node(state, database_agent):
     print(
         "Database fields:",
         {name: value.value for name, value in fields.items()},
-        f"[{context.integrity.name}, {context.confidentiality.name}]",
+        f"[{context.level.name}, {context.confidentiality.name}]",
     )
 
     try:
@@ -79,7 +79,7 @@ def run_database_node(state, database_agent):
 
     print("Database agent result:", result["messages"][-1].content)
     print(
-        f"Final context label: {context.integrity.name}, "
+        f"Final context label: {context.level.name}, "
         f"{context.confidentiality.name}, {sorted(context.provenance)}"
     )
 

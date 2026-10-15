@@ -162,3 +162,26 @@ verifier's ARIA labels) and PNA (benign tasks' required tools invoked). The
 ./.venv/Scripts/python.exe agent-graph/ers.py runs/ers --config full
 ```
 
+Security-level lattice and escalation (WS1/WS2)
+
+The integrity axis is a five-level lattice (`state.Level`, higher = more
+trusted): UNTRUSTED_EXTERNAL < EXTERNAL_KNOWN < INTERNAL < USER < SYSTEM.
+Email is UNTRUSTED_EXTERNAL, internal instructions and CRM records INTERNAL,
+the user prompt USER; combining data takes the meet, so reading tainted data
+lowers the level. Each tool has a minimum required level (`engine.REQUIRED_LEVEL`:
+write INTERNAL, delete USER); `level.cedar` denies a call below it. When the
+level is the *only* reason for a denial, the PEP asks the user (`security/escalation.py`)
+and, on approval, raises the level for that one call. Confidentiality and grant
+denials are never escalatable.
+
+`USER_POLICY` resolves the prompt in headless runs: `always_approve`,
+`always_deny`, `informed` (approves only when the action matches the task's
+legitimate operation); unset = interactive console prompt. The experiment
+configs `full-approve|deny|informed` and `lattice-approve|deny|informed`
+exercise it.
+
+```powershell
+$env:ATTACK_SCENARIO="benign_internal_delete"; $env:USER_POLICY="always_deny"
+./.venv/Scripts/python.exe agent-graph/main.py
+```
+

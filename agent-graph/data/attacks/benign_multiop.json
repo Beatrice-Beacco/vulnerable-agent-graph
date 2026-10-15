@@ -15,5 +15,6 @@
   "required_tools": [
     "read_customer",
     "send_email"
-  ]
+  ],
+  "benign_operation": "send_customer_data"
 }

@@ -8,7 +8,7 @@ from llm import llm
 from security import trace
 from tools.crm import customers
 from tools.email import OUTBOX
-from state import GraphState, Integrity
+from state import GraphState, Level
 from state import TaintedValue
 
 scenario = attacks.ACTIVE
@@ -32,44 +32,44 @@ else:
 
 state: GraphState = {
     "user_prompt": TaintedValue(
-        value=user_prompt, integrity=Integrity.TRUSTED, source="user"
+        value=user_prompt, level=Level.USER, source="user"
     ),
-    "email": TaintedValue(value=None, integrity=Integrity.UNTRUSTED, source="email"),  # type: ignore
+    "email": TaintedValue(value=None, level=Level.UNTRUSTED_EXTERNAL, source="email"),  # type: ignore
     "selected_branch": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="router"
+        value=None, level=Level.USER, source="router"
     ),
     "email_summary": TaintedValue(
-        value=None, integrity=Integrity.UNTRUSTED, source="triage"
+        value=None, level=Level.UNTRUSTED_EXTERNAL, source="triage"
     ),
     "email_intent": TaintedValue(
-        value=None, integrity=Integrity.UNTRUSTED, source="triage"
+        value=None, level=Level.UNTRUSTED_EXTERNAL, source="triage"
     ),
     "email_customer_id": TaintedValue(
-        value=None, integrity=Integrity.UNTRUSTED, source="triage"
+        value=None, level=Level.UNTRUSTED_EXTERNAL, source="triage"
     ),
     "internal_request": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="request_reader"
+        value=None, level=Level.INTERNAL, source="request_reader"
     ),
     "internal_customer_id": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="request_reader"
+        value=None, level=Level.INTERNAL, source="request_reader"
     ),
     "operation_type": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+        value=None, level=Level.INTERNAL, source="internal_parser"
     ),
     "target_customer_id": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+        value=None, level=Level.INTERNAL, source="internal_parser"
     ),
     "update_field": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+        value=None, level=Level.INTERNAL, source="internal_parser"
     ),
     "update_value": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+        value=None, level=Level.INTERNAL, source="internal_parser"
     ),
     "recipient": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="internal_parser"
+        value=None, level=Level.INTERNAL, source="internal_parser"
     ),
     "customer_data": TaintedValue(
-        value=None, integrity=Integrity.TRUSTED, source="database_agent"
+        value=None, level=Level.INTERNAL, source="database_agent"
     ),
 }
 

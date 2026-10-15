@@ -21,8 +21,10 @@ entity Recipient {
 };
 
 type ToolRequestContext = {
-  // integrity: 0 = trusted, 1 = untrusted
-  integrity: Long,
+  // integrity level of the agent's context (state.Level, higher = more
+  // trusted); required_level is the minimum the tool needs (level.cedar).
+  level: Long,
+  required_level: Long,
   // confidentiality: 0 = PUBLIC, 1 = INTERNAL, 2 = CONFIDENTIAL
   conf: Long,
   provenance: Set<String>,
@@ -46,7 +48,7 @@ type ToolRequestContext = {
 // by an analyst from a request), facts about that request, and the analyst.
 type AnalysisContext = {
   // label of the analyst's context
-  integrity: Long,
+  level: Long,
   conf: Long,
   provenance: Set<String>,
   // the analysis (canonical form, engine/facts.py)

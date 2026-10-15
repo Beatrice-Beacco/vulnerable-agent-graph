@@ -1,8 +1,8 @@
-from engine.engine import ReferenceMonitor
+from engine.engine import ReferenceMonitor, required_level
 from langchain.agents.middleware import AgentMiddleware
+from security import escalation, trace
 from security.security_context import SecurityContext, build_security_context
 from security.tool_labels import output_label
-from security import trace
 
 monitor = ReferenceMonitor()
 
@@ -54,6 +54,24 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
         }
 
         if not decision.allowed:
+            # Escalation (WS2): if the ONLY reason for the denial is the level
+            # (raising the context to the tool's required level would authorize
+            # it), ask the user. Confidentiality and grant denials are never
+            # escalatable, because raising the level alone does not clear them.
+            required = required_level(tool_name)
+            raised = context.raised_to(required)
+            if context.level < required and self.monitor.check_tool(
+                agent=self.agent_id, tool=tool_name, context=raised, args=args
+            ).allowed:
+                if escalation.resolve(self.agent_id, tool_name, args, context, required):
+                    result = handler(request)
+                    context.absorb(output_label(tool_name, args))
+                    trace.event(
+                        "tool_call", **{**call, "allowed": True}, escalated=True,
+                        executed=True, output=getattr(result, "content", result),
+                    )
+                    return result
+
             context.denied_calls += 1
             trace.event("tool_call", **call, executed=False)
             raise PermissionError(str(decision))

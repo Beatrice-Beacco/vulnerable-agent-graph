@@ -54,5 +54,6 @@
         }
       ]
     }
-  }
+  },
+  "benign_operation": "send_customer_data"
 }

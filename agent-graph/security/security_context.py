@@ -64,8 +64,8 @@ class SecurityContext:
     denied_calls: int = 0
 
     @property
-    def integrity(self):
-        return self.label.integrity
+    def level(self):
+        return self.label.level
 
     @property
     def confidentiality(self):
@@ -76,11 +76,32 @@ class SecurityContext:
         return self.label.provenance
 
     def is_trusted(self) -> bool:
-        return self.label.integrity == 0
+        from state import TRUSTED_THRESHOLD
+
+        return self.label.level >= TRUSTED_THRESHOLD
 
     def absorb(self, label: Label) -> None:
-        """Joins the label of new data entering the LLM context (tool output)."""
+        """
+        Combines the label of new data entering the LLM context (tool output):
+        the meet lowers the level if the data is less trusted than the context.
+        """
         self.label = self.label.join(label)
+
+    def raised_to(self, level) -> "SecurityContext":
+        """
+        A copy of this context with the level raised to `level`, for a scoped
+        user escalation (WS2). The raise applies only to the authorization it
+        is passed to; the context's own label is unchanged.
+        """
+        from dataclasses import replace
+
+        return SecurityContext(
+            fields=self.fields,
+            label=replace(self.label, level=max(self.label.level, level)),
+            origin=self.origin,
+            binding=self.binding,
+            denied_calls=self.denied_calls,
+        )
 
     def labeled(self, value: Any, source: str) -> TaintedValue:
         """
@@ -90,7 +111,7 @@ class SecurityContext:
         """
         return TaintedValue(
             value=value,
-            integrity=self.label.integrity,
+            level=self.label.level,
             confidentiality=self.label.confidentiality,
             source=source,
             provenance=sorted(self.label.provenance) + [source],
@@ -98,7 +119,7 @@ class SecurityContext:
 
     def to_cedar_context(self) -> Dict[str, Any]:
         return {
-            "integrity": int(self.label.integrity),
+            "level": int(self.label.level),
             "conf": int(self.label.confidentiality),
             "provenance": sorted(self.label.provenance),
             "operation": self.binding.operation,

@@ -225,7 +225,7 @@ def verify_run(path) -> dict[str, Any]:
     denied = [c for c in run.tool_calls if not c["allowed"]]
     verdict["tool_calls"] = [
         f"{'ALLOW' if c['allowed'] else 'DENY'} {c['agent']} -> {c['tool']} "
-        f"[{c['label']['integrity']}, {c['label']['confidentiality']}]"
+        f"[{c['label'].get('level', c['label'].get('integrity'))}, {c['label']['confidentiality']}]"
         + (f" by {', '.join(c['policies'])}" if c["policies"] else "")
         for c in run.tool_calls
     ]

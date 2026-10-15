@@ -1,5 +1,5 @@
 from pydantic.dataclasses import dataclass
-from state import GraphState, TaintedValue, Integrity
+from state import GraphState, TaintedValue
 from agents.base import build_agent
 from security.security_context import build_security_context
 
@@ -50,7 +50,7 @@ def run_router_node(state: GraphState, router_agent) -> dict:
     return {
         "selected_branch": TaintedValue(
             value=branch,
-            integrity=Integrity.TRUSTED,
+            level=state["user_prompt"].level,
             provenance=state["user_prompt"].provenance + ["router"],
             source="router",
         ),

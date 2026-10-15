@@ -11,5 +11,5 @@ forbid (
   action == Action::"send_email",
   resource
 )
-when { context.integrity != 0 }
+when { context.level < 2 }
 unless { context.recipient_is_customer_contact };

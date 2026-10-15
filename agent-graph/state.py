@@ -8,9 +8,31 @@ from typing import TypedDict
 from enum import IntEnum
 
 
-class Integrity(IntEnum):
-    TRUSTED = 0
-    UNTRUSTED = 1
+class Level(IntEnum):
+    """
+    Integrity lattice of security levels (WS1), higher = more trusted:
+
+        UNTRUSTED_EXTERNAL < EXTERNAL_KNOWN < INTERNAL < USER < SYSTEM
+
+    A data item carries the level of its source. Combining data takes the
+    *meet* (the minimum): data derived from an external email and an internal
+    record can be trusted only at the external level. So reading tainted
+    (low-level) data lowers a context's level. A tool requires a minimum
+    level; below it the action is escalated to the user (WS2).
+
+    The 2-point configuration {UNTRUSTED_EXTERNAL, INTERNAL} reproduces the
+    old TRUSTED/UNTRUSTED axis: "trusted" is level >= INTERNAL.
+    """
+
+    UNTRUSTED_EXTERNAL = 0
+    EXTERNAL_KNOWN = 1
+    INTERNAL = 2
+    USER = 3
+    SYSTEM = 4
+
+
+# "Trusted" in the old 2-point sense: at or above INTERNAL.
+TRUSTED_THRESHOLD = Level.INTERNAL
 
 
 class Confidentiality(IntEnum):
@@ -30,19 +52,13 @@ class Confidentiality(IntEnum):
 @dataclass
 class TaintedValue:
     value: str
-    integrity: Integrity
+    level: Level
     source: str = "unknown"
     provenance: list[str] = field(default_factory=list)
     confidentiality: Confidentiality = Confidentiality.PUBLIC
 
     def is_trusted(self) -> bool:
-        return self.integrity == Integrity.TRUSTED
-
-
-def taint_policy(integrity_left: Integrity, integrity_right: Integrity) -> Integrity:
-    if integrity_left == Integrity.UNTRUSTED or integrity_right == Integrity.UNTRUSTED:
-        return Integrity.UNTRUSTED
-    return Integrity.TRUSTED
+        return self.level >= TRUSTED_THRESHOLD
 
 
 def merge_tainted(left: TaintedValue, right: TaintedValue):
@@ -58,7 +74,7 @@ def merge_tainted(left: TaintedValue, right: TaintedValue):
     if left_has_value and not right_has_value:
         return left
 
-    # Both have values: concatenate and compute merged integrity.
+    # Both have values: concatenate and take the meet of the levels.
     merged_value = right.value
     if left.value and right.value:
         merged_value = f"{left.value}\n{right.value}"
@@ -73,7 +89,7 @@ def merge_tainted(left: TaintedValue, right: TaintedValue):
 
     return TaintedValue(
         value=merged_value,
-        integrity=taint_policy(left.integrity, right.integrity),
+        level=meet_level(left.level, right.level),
         source=merged_source,
         provenance=merged_provenance,
         confidentiality=join_confidentiality(
@@ -82,18 +98,14 @@ def merge_tainted(left: TaintedValue, right: TaintedValue):
     )
 
 
-def join_integrity(*labels: Integrity) -> Integrity:
+def meet_level(*levels: Level) -> Level:
     """
-    Join operator (⊔) of the integrity lattice.
-
-    Trusted ⊔ Trusted = Trusted
-    Otherwise = Untrusted
+    Meet operator (⊓) of the integrity lattice: the least trusted level.
+    Combining data of different levels yields data trustworthy only at the
+    lowest. The meet of no labels is SYSTEM (top, the identity of meet).
     """
 
-    if all(label == Integrity.TRUSTED for label in labels):
-        return Integrity.TRUSTED
-
-    return Integrity.UNTRUSTED
+    return Level(min((int(level) for level in levels), default=int(Level.SYSTEM)))
 
 
 def join_confidentiality(*labels: Confidentiality) -> Confidentiality:

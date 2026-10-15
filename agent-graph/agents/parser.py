@@ -100,7 +100,7 @@ def run_internal_parser_node(state, internal_parser_agent, reviewer=None, arbite
     update = {
         name: TaintedValue(
             value=value,
-            integrity=internal_request.integrity,
+            level=internal_request.level,
             confidentiality=internal_request.confidentiality,
             source="internal_parser",
             provenance=internal_request.provenance + ["internal_parser"],

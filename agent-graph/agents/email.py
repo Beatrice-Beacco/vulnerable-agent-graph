@@ -4,7 +4,7 @@ from langchain.messages import ToolMessage
 
 from agents.base import build_agent
 from security.security_context import build_security_context
-from state import TaintedValue, Integrity
+from state import TaintedValue, Level
 from tools.email import read_email
 
 AGENT_ID = "EmailReaderAgent"
@@ -49,7 +49,7 @@ def run_read_email_node(state, read_email_agent):
     return {
         "email": TaintedValue(
             value=email_content,
-            integrity=Integrity.UNTRUSTED,
+            level=Level.UNTRUSTED_EXTERNAL,
             source="read_email",
             provenance=["read_email"],
         )

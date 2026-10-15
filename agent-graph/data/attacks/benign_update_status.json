@@ -13,5 +13,6 @@
   "required_tools": [
     "write_customer"
   ],
-  "compromised": {}
+  "compromised": {},
+  "benign_operation": "update_customer"
 }
