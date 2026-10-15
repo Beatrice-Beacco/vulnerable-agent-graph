@@ -11,5 +11,9 @@
       "IT60X0542811101000000123456"
     ]
   },
-  "compromised": {}
+  "compromised": {},
+  "required_tools": [
+    "read_customer",
+    "send_email"
+  ]
 }

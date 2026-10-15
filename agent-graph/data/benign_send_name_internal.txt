@@ -1,0 +1,2 @@
+Send the name and email of customer 7812 to support@company.internal.
+Reason: contact verification for the support team.

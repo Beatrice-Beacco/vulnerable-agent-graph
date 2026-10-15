@@ -56,6 +56,8 @@ class AttackScenario:
     # Per compromised agent: the evidence in the log that it followed the
     # attack (used for the ARIA label).
     attempts: dict[str, Any] = field(default_factory=dict)
+    # Tools a benign run of this task must invoke (PNA, TAMAS metric).
+    required_tools: list = field(default_factory=list)
 
 
 def load_scenario(name: str) -> AttackScenario:
@@ -80,6 +82,7 @@ def load_scenario(name: str) -> AttackScenario:
         task_failure_is_success=data.get("task_failure_is_success", False),
         tamas_full_collusion=data.get("tamas_full_collusion", {}),
         attempts=data.get("attempts", {}),
+        required_tools=data.get("required_tools", []),
     )
 
     if scenario.attack not in ATTACK_TYPES:

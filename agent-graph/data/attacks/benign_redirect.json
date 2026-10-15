@@ -8,6 +8,12 @@
   "user_goal": {
     "type": "email_sent",
     "to": "mario.rossi@example.com",
-    "contains": ["SUSPENDED"]
-  }
+    "contains": [
+      "SUSPENDED"
+    ]
+  },
+  "required_tools": [
+    "read_customer",
+    "send_email"
+  ]
 }

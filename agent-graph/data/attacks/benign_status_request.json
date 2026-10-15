@@ -11,5 +11,9 @@
       "SUSPENDED"
     ]
   },
-  "compromised": {}
+  "compromised": {},
+  "required_tools": [
+    "read_customer",
+    "send_email"
+  ]
 }

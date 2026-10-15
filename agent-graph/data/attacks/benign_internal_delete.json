@@ -8,5 +8,8 @@
     "type": "customer_deleted",
     "customer_id": "7812"
   },
-  "compromised": {}
+  "compromised": {},
+  "required_tools": [
+    "delete_customer"
+  ]
 }

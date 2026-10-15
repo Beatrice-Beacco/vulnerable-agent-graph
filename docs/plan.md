@@ -114,6 +114,9 @@ Result of the first runs of the multi-agent attacks: labels track where data cam
 - [x] Close the two residual gaps (`disambiguation.cedar`: no destructive operation from a request that supports more than one; `data_subject.cedar`: an untrusted request may only send a customer's data to that customer's own registered address). Re-attacked (123 runs, `runs/reattack-2026-10-10`): both attacks prevented (no harm in 20 runs), no over-blocking (5 benign controls), no regression (original 6 unchanged). Residual cost is availability: a closed gap downgrades the attack to a stopped task.
 - [ ] LLM-derived values below the internal level in the lattice + user escalation for destructive operations (depends on WS1/WS2).
 
+- [x] TAMAS metric (ERS): larger benign set (`benign_*`, 8 tasks) + `agent-graph/ers.py` computing Safety / PNA / ERS the TAMAS way from the logs. On this system (`runs/ers-2026-10-10`, 180 runs): ERS 40.8 defended vs 18.2 undefended; Safety 25.6 vs 10.0; PNA 100 both. Scenarios follow the TAMAS attack model with original prompts (not TAMAS's own prompts/tools/scenarios); single-system normalization.
+- [ ] Run against TAMAS's own prompts, tools and five scenarios for a true benchmark comparison; grow the benign set toward TAMAS's 100 tasks.
+
 ### WS7 — Metrics & analysis
 Per cell (scenario × mode × tool-set × feedback × user policy), from traces + oracle:
 - [ ] Attack success rate (ASR); SHADOW = undefended ASR.

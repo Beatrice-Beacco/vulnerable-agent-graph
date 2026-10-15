@@ -8,6 +8,12 @@
   "user_goal": {
     "type": "email_sent",
     "to": "accounting@company.internal",
-    "contains": ["IT60X0542811101000000123456"]
-  }
+    "contains": [
+      "IT60X0542811101000000123456"
+    ]
+  },
+  "required_tools": [
+    "read_customer",
+    "send_email"
+  ]
 }

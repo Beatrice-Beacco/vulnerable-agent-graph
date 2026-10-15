@@ -1,0 +1,2 @@
+Update the status of customer 7812 to ACTIVE.
+Reason: reactivation approved by the account manager.

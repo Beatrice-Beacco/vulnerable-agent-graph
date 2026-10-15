@@ -151,3 +151,14 @@ full defenses; see the findings doc.
 $env:ATTACK_SCENARIO="adaptive_multiop_collusion"; ./.venv/Scripts/python.exe agent-graph/main.py
 ```
 
+TAMAS metric (ERS)
+
+`agent-graph/ers.py` computes the TAMAS Effective Robustness Score from a run
+directory: the harmonic mean of an overall Safety score (from the code
+verifier's ARIA labels) and PNA (benign tasks' required tools invoked). The
+`benign_*` scenarios carry a `required_tools` field for PNA.
+
+```powershell
+./.venv/Scripts/python.exe agent-graph/ers.py runs/ers --config full
+```
+
