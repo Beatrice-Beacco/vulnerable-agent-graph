@@ -49,6 +49,15 @@ CONFIGS = {
     "lattice-approve": {"DISABLED_POLICIES": _ANALYSIS, "ANALYSTS": "1", "USER_POLICY": "always_approve"},
     "lattice-deny": {"DISABLED_POLICIES": _ANALYSIS, "ANALYSTS": "1", "USER_POLICY": "always_deny"},
     "lattice-informed": {"DISABLED_POLICIES": _ANALYSIS, "ANALYSTS": "1", "USER_POLICY": "informed"},
+    # Undefended baseline for ERS: analysis layer off, escalations rubber-stamped
+    # (the DIFC core — level, confidentiality, grants — stays on, as in the old "none").
+    "none-approve": {"DISABLED_POLICIES": _ANALYSIS, "ANALYSTS": "1", "USER_POLICY": "always_approve"},
+    # Feedback mode (WS3): a denial is returned to the model, which may retry
+    # up to the budget. full defenses + informed escalation.
+    "feedback-reason": {"DISABLED_POLICIES": "", "ANALYSTS": "2", "USER_POLICY": "informed",
+                        "ENFORCEMENT": "feedback", "FEEDBACK_DETAIL": "reason"},
+    "feedback-opaque": {"DISABLED_POLICIES": "", "ANALYSTS": "2", "USER_POLICY": "informed",
+                        "ENFORCEMENT": "feedback", "FEEDBACK_DETAIL": "opaque"},
 }
 
 

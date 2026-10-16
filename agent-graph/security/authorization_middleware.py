@@ -1,6 +1,7 @@
 from engine.engine import ReferenceMonitor, required_level
 from langchain.agents.middleware import AgentMiddleware
-from security import escalation, trace
+from langchain.messages import ToolMessage
+from security import escalation, feedback, trace
 from security.security_context import SecurityContext, build_security_context
 from security.tool_labels import output_label
 
@@ -71,6 +72,21 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
                         executed=True, output=getattr(result, "content", result),
                     )
                     return result
+
+            # Feedback (WS3): return the denial to the model so it keeps its
+            # loop and can try another action, up to a bounded budget. Each
+            # fed-back denial still counts (quarantine.cedar sees denied_calls).
+            if feedback.enabled() and context.denied_calls < feedback.budget():
+                context.denied_calls += 1
+                trace.event(
+                    "tool_call", **call, executed=False,
+                    feedback=True, attempt=context.denied_calls,
+                )
+                return ToolMessage(
+                    content=feedback.message(tool_name, decision),
+                    tool_call_id=tool_call["id"],
+                    name=tool_name,
+                )
 
             context.denied_calls += 1
             trace.event("tool_call", **call, executed=False)
