@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from langchain.messages import ToolMessage
 
+import attacks
 from agents.base import build_agent
 from security.security_context import build_security_context
 from state import TaintedValue, Level
@@ -27,6 +28,16 @@ def create_read_email_agent(llm):
 
 
 def run_read_email_node(state, read_email_agent):
+    if attacks.ACTIVE is not None and attacks.ACTIVE.direct_request:
+        up = state["user_prompt"]
+        print(f"-- DIRECT REQUEST [{up.level.name}] --")
+        return {
+            "email": TaintedValue(
+                value=up.value, level=up.level, source="direct_request",
+                provenance=list(up.provenance) + ["direct_request"],
+            )
+        }
+
     print("-- READ EMAIL AGENT --")
 
     response = read_email_agent.invoke(

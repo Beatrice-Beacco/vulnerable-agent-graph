@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from langchain.messages import ToolMessage
 
+import attacks
 from agents.base import build_agent
 from security.security_context import build_security_context
 from state import TaintedValue, Level
@@ -33,6 +34,18 @@ def create_request_reader_agent(llm):
 
 
 def run_request_reader_node(state, request_reader_agent):
+    if attacks.ACTIVE is not None and attacks.ACTIVE.direct_request:
+        # Direct prompt injection: the request IS the user_prompt, carrying its
+        # channel level (not a trusted internal file).
+        up = state["user_prompt"]
+        print(f"-- DIRECT REQUEST [{up.level.name}] --")
+        return {
+            "internal_request": TaintedValue(
+                value=up.value, level=up.level, source="direct_request",
+                provenance=list(up.provenance) + ["direct_request"],
+            )
+        }
+
     print("-- READ INTERNAL INSTRUCTION AGENT --")
 
     response = request_reader_agent.invoke(

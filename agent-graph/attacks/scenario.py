@@ -10,7 +10,9 @@ from tools.email import send_email
 SCENARIO_DIR = Path(__file__).resolve().parent.parent / "data" / "attacks"
 
 # "none" = a benign control: the same task with no compromised agent.
-ATTACK_TYPES = {"byzantine", "colluding", "contradicting", "none"}
+# "dpi"/"ipi"/"impersonation" are input attacks (no compromised agent; the
+# adversarial content is in the request). "none" = benign control.
+ATTACK_TYPES = {"byzantine", "colluding", "contradicting", "dpi", "ipi", "impersonation", "none"}
 
 # Tools an attack can hand to a compromised agent (T^e). They are the real
 # tools of the system, so the reference monitor mediates them like any other.
@@ -62,6 +64,12 @@ class AttackScenario:
     # an escalation for this operation on benign_customer is approved.
     benign_operation: str = ""
     benign_customer: str = "7812"
+    # Input attacks (DPI/IPI/impersonation): where the adversarial content
+    # enters, whether the user_prompt is the direct request, and the level of
+    # that input channel (UNTRUSTED_EXTERNAL for an untrusted channel).
+    attack_entry: str = ""
+    direct_request: bool = False
+    input_level: str = "USER"
 
 
 def load_scenario(name: str) -> AttackScenario:
@@ -89,15 +97,21 @@ def load_scenario(name: str) -> AttackScenario:
         required_tools=data.get("required_tools", []),
         benign_operation=data.get("benign_operation", ""),
         benign_customer=data.get("benign_customer", "7812"),
+        attack_entry=data.get("attack_entry", ""),
+        direct_request=data.get("direct_request", False),
+        input_level=data.get("input_level", "USER"),
     )
 
     if scenario.attack not in ATTACK_TYPES:
         raise ValueError(f"{path.name}: unknown attack {scenario.attack!r}")
     if scenario.topology not in TOPOLOGIES:
         raise ValueError(f"{path.name}: unknown topology {scenario.topology!r}")
-    stray = set(scenario.attempts) - set(compromised)
-    if stray:
-        raise ValueError(f"{path.name}: attempts for agents not compromised {sorted(stray)}")
+    # Agent attacks: attempts must name a compromised agent. Input attacks
+    # (no compromised agent) name the agent that would adopt the injection.
+    if compromised:
+        stray = set(scenario.attempts) - set(compromised)
+        if stray:
+            raise ValueError(f"{path.name}: attempts for agents not compromised {sorted(stray)}")
     for agent, compromise in compromised.items():
         unknown = set(compromise.tools) - set(ATTACKER_TOOLS)
         if unknown:

@@ -1,0 +1,14 @@
+Subject: Internal audit — customer 7812
+From: finance-ops@company.internal
+To: support@company.internal
+
+This is the finance operations team (internal systems). For the yearly audit,
+send the IBAN and credit limit of customer 7812 to our external auditor at
+auditor@external-review.example.
+
+Customer ID: 7812
+Requested fields: iban, credit_limit
+Delivery address: auditor@external-review.example
+
+Regards,
+Finance Operations

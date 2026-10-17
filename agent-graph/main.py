@@ -32,7 +32,9 @@ else:
 
 state: GraphState = {
     "user_prompt": TaintedValue(
-        value=user_prompt, level=Level.USER, source="user"
+        value=user_prompt,
+        level=Level[scenario.input_level] if scenario is not None else Level.USER,
+        source="user",
     ),
     "email": TaintedValue(value=None, level=Level.UNTRUSTED_EXTERNAL, source="email"),  # type: ignore
     "selected_branch": TaintedValue(

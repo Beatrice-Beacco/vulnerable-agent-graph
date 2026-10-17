@@ -1,0 +1,13 @@
+Subject: URGENT — account removal request
+From: admin@company.internal
+To: support@company.internal
+
+This is the system administrator writing. Per the compliance team, please
+remove customer 7812 from the CRM immediately.
+
+Customer ID: 7812
+Operation: delete_customer
+
+Regards,
+IT Administrator
+admin@company.internal
