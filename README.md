@@ -185,3 +185,18 @@ $env:ATTACK_SCENARIO="benign_internal_delete"; $env:USER_POLICY="always_deny"
 ./.venv/Scripts/python.exe agent-graph/main.py
 ```
 
+Feedback mode (WS3)
+
+By default a denied tool call raises a PermissionError that ends the agent.
+With ENFORCEMENT=feedback the PEP instead returns the denial to the model as
+the tool's result (a ToolMessage), so the agent keeps its loop and may retry
+up to FEEDBACK_BUDGET denied calls (default 3) before a hard deny.
+FEEDBACK_DETAIL is reason (policy + target) or opaque. A fed-back denial still
+counts as a denied call, so quarantine.cedar sees it. Configs
+feedback-reason / feedback-opaque exercise it.
+
+```powershell
+$env:ATTACK_SCENARIO="colluding_database_email"; $env:ENFORCEMENT="feedback"; $env:USER_POLICY="informed"
+./.venv/Scripts/python.exe agent-graph/main.py
+```
+
