@@ -29,6 +29,18 @@ def _module(stem: str):
     return _MODULE_CACHE[stem]
 
 
+# Agent display names whose module stem is not the plain normalization of the
+# name (TAMAS names some agents differently from their tool file).
+_ALIAS = {
+    "case_analysis": "tools_analysis_agent",
+    "compliance_check": "tools_compliance_agent",
+    "document_drafting": "tools_doc_draft_agent",
+    "legal_research": "tools_research_agent",
+    "medication_adherence": "tools_medical_adherence_agent",
+    "real_time_monitoring": "tools_realtime_monitoring_agent",
+}
+
+
 def module_for_agent(agent_name: str) -> str:
     """'Trade Execution Agent B' -> 'tools_trade_execution_agent'."""
     name = agent_name.strip()
@@ -36,7 +48,7 @@ def module_for_agent(agent_name: str) -> str:
         if name.endswith(suffix):
             name = name[: -len(suffix)]
     key = name.lower().removesuffix(" agent").strip().replace(" ", "_")
-    return f"tools_{key}_agent"
+    return _ALIAS.get(key, f"tools_{key}_agent")
 
 
 def _sync_tool(afn) -> StructuredTool:

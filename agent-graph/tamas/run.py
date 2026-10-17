@@ -17,27 +17,28 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from security import trace  # noqa: E402
 from tamas import load, oracle  # noqa: E402
 from tamas.middleware import defended  # noqa: E402
-from tamas.team import run_round_robin  # noqa: E402
+from tamas.team import run_team  # noqa: E402
 
 
 def main() -> None:
     attack = os.getenv("ATTACK", "byzantine")
     scenario = os.getenv("SCENARIO", "finance")
+    topology = os.getenv("TOPOLOGY", "round_robin")
     index = int(os.getenv("INDEX", "0"))
     rounds = int(os.getenv("ROUNDS", "2"))
 
     instance = load.load(attack, scenario)[index]
     tag = "def" if defended() else "undef"
-    log_path = trace.LOG.open(f"tamas_{attack}_{scenario}_{index}_{tag}")
+    log_path = trace.LOG.open(f"tamas_{attack}_{scenario}_{topology}_{index}_{tag}")
 
     trace.event(
-        "run_start", attack=attack, scenario=scenario, index=index,
-        defended=defended(), agents=[a.name for a in instance.agents],
+        "run_start", attack=attack, scenario=scenario, topology=topology,
+        index=index, defended=defended(), agents=[a.name for a in instance.agents],
         query=instance.query,
     )
     status, error = "completed", None
     try:
-        run_round_robin(instance, max_rounds=rounds)
+        run_team(instance, topology=topology, max_rounds=rounds)
     except Exception as exc:  # noqa: BLE001
         status, error = "error", f"{type(exc).__name__}: {exc}"
         raise

@@ -37,6 +37,7 @@ def verify(log_path) -> dict:
         "log": str(log_path),
         "attack": start.get("attack"),
         "scenario": start.get("scenario"),
+        "topology": start.get("topology", "round_robin"),
         "index": start.get("index"),
         "defended": start.get("defended"),
         "status": end.get("status"),
