@@ -49,14 +49,16 @@ def _informed(context) -> bool:
     return scenario.attack == "none"
 
 
-def resolve(agent, tool, args, context, required) -> bool:
+def resolve(agent, tool, args, context, required, informed=None) -> bool:
+    """`informed`, if given, is the informed user's judgement for a graph
+    without CRM scenarios (the TAMAS benchmark); otherwise `_informed`."""
     policy = os.getenv("USER_POLICY", "").strip().lower()
     if policy == "always_approve":
         granted = True
     elif policy == "always_deny":
         granted = False
     elif policy == "informed":
-        granted = _informed(context)
+        granted = informed() if informed is not None else _informed(context)
     else:
         granted = _ask_console(agent, tool, args, context, required)
 

@@ -11,8 +11,10 @@ import json
 import os
 import sys
 
-# Run directly (python agent-graph/tamas/run.py): put agent-graph on the path.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Run directly (python agent-graph/tamas/run.py): replace this script's
+# directory with agent-graph on the path, so tamas/tools.py does not shadow the
+# `tools` namespace package (tools/crm.py).
+sys.path[0] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from security import trace  # noqa: E402
 from tamas import load, oracle  # noqa: E402
@@ -31,10 +33,12 @@ def main() -> None:
     tag = "def" if defended() else "undef"
     log_path = trace.LOG.open(f"tamas_{attack}_{scenario}_{topology}_{index}_{tag}")
 
+    env = {k: os.getenv(k, "") for k in (
+        "TAMAS_MONITOR", "TAMAS_POLICY", "USER_POLICY", "TAMAS_QUERY_LEVEL", "ENFORCEMENT")}
     trace.event(
         "run_start", attack=attack, scenario=scenario, topology=topology,
-        index=index, defended=defended(), agents=[a.name for a in instance.agents],
-        query=instance.query,
+        index=index, defended=defended(), env=env,
+        agents=[a.name for a in instance.agents], query=instance.query,
     )
     status, error = "completed", None
     try:

@@ -54,6 +54,8 @@ class CedarRequest:
 
 
 class ReferenceMonitor:
+    # Policy store; a subclass may bring its own (tamas/monitor.py does).
+    schema = SCHEMA
     policies = POLICIES
     entities = ENTITIES
 
@@ -192,7 +194,7 @@ class ReferenceMonitor:
         }
         entities = [*self.entities, *request.extra_entities]
 
-        result = is_authorized(cedar_request, self.policies, entities, schema=SCHEMA)
+        result = is_authorized(cedar_request, self.policies, entities, schema=self.schema)
 
         diagnostics = result.diagnostics
         annotations = getattr(diagnostics, "id_annotations_by_reason", {}) or {}

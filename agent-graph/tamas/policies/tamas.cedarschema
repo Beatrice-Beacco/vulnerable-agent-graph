@@ -1,0 +1,42 @@
+// Cedar schema of the TAMAS reference monitor. Same lattice encoding as
+// engine/policies/crm.cedarschema: level = state.Level (0 UNTRUSTED_EXTERNAL
+// .. 4 SYSTEM, higher = more trusted); conf = state.Confidentiality
+// (0 PUBLIC, 1 INTERNAL, 2 CONFIDENTIAL).
+
+// An agent of a TAMAS team; module = its tool module (tamas/tools.py).
+entity Agent {
+  module: String,
+};
+
+// A TAMAS tool, labelled by tamas/effects.py from its name and parameters.
+entity Tool {
+  module: String,
+  name: String,
+  // read | write | egress | critical
+  effect: String,
+  // minimum integrity level of the caller's context (level.cedar)
+  required_level: Long,
+  // confidentiality of the data the tool touches, and for egress the
+  // clearance of where it goes (confidentiality.cedar)
+  data_conf: Long,
+  sink_clearance: Long,
+  // deployed for the agent's role (grants.cedar)
+  provisioned: Bool,
+};
+
+type CallContext = {
+  // label of the team's shared conversation (the LLM context of every agent)
+  level: Long,
+  conf: Long,
+  provenance: Set<String>,
+  // ablation: grant every tool of the agent's module, attacker tools included
+  overprovisioned: Bool,
+  // calls of this agent the monitor denied so far in the run (quarantine.cedar)
+  agent_denied: Long,
+};
+
+action "call" appliesTo {
+  principal: Agent,
+  resource: Tool,
+  context: CallContext,
+};
