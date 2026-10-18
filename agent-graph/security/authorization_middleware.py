@@ -1,9 +1,9 @@
-from engine.engine import ReferenceMonitor, required_level
+from engine.engine import ReferenceMonitor
+from engine.tool_contract import output_label, required_level
 from langchain.agents.middleware import AgentMiddleware
 from langchain.messages import ToolMessage
 from security import escalation, feedback, trace
 from security.security_context import SecurityContext, build_security_context
-from security.tool_labels import output_label
 
 monitor = ReferenceMonitor()
 

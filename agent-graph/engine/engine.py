@@ -2,32 +2,13 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from cedarpy import is_authorized
-from security.directory import normalize_address, recipient_clearance
 from security.security_context import SecurityContext
-from tools.crm import FIELD_CLASSIFICATION, requested_fields
+from tools.crm import FIELD_CLASSIFICATION
 
-from state import Level
-from tools.crm import customers
-
+from . import crm_tools  # noqa: F401 -- registers the CRM's tool declarations
 from .facts import canonical, request_facts
-from .schema import ENTITIES, OPERATION_EVIDENCE, POLICIES, SCHEMA, entity
-
-# Tools that only bring data into the graph: no policy constrains the call,
-# the output is labeled by security/tool_labels.py when it enters the context.
-SOURCE_TOOLS = {"read_email", "read_internal_instruction"}
-
-# Minimum integrity level a tool requires (level.cedar). A call from below it
-# is escalated to the user (WS2). Reads and sends are not level-gated here
-# (confidentiality governs them); mutations are: a write needs INTERNAL, a
-# delete the USER level, so even a legitimate internal delete asks the user.
-REQUIRED_LEVEL = {
-    "write_customer": Level.INTERNAL,
-    "delete_customer": Level.USER,
-}
-
-
-def required_level(tool: str) -> Level:
-    return REQUIRED_LEVEL.get(tool, Level.UNTRUSTED_EXTERNAL)
+from .schema import ENTITIES, OPERATION_EVIDENCE, POLICIES, SCHEMA
+from .tool_contract import CedarRequest, declaration, required_level  # noqa: F401
 
 
 @dataclass(frozen=True)
@@ -45,14 +26,6 @@ class AuthorizationDecision:
         return f"{verdict} {self.agent} -> {self.tool} ({self.reason})"
 
 
-@dataclass(frozen=True)
-class CedarRequest:
-    action: str
-    resource_type: str
-    resource_id: str
-    extra_entities: tuple = ()
-
-
 class ReferenceMonitor:
     # Policy store; a subclass may bring its own (tamas/monitor.py does).
     schema = SCHEMA
@@ -68,32 +41,35 @@ class ReferenceMonitor:
     ) -> AuthorizationDecision:
         """
         Authorizes the call `tool(args)` of `agent`, given the label of the
-        agent's context. A call can map to several Cedar requests (one per
-        CRM field read): all of them must be allowed.
+        agent's context. The tool's declaration (engine/tool_contract.py)
+        turns the call into Cedar requests -- possibly several, e.g. one per
+        CRM field read: all of them must be allowed -- and adds the Cedar
+        context the call contributes beyond the caller's label.
         """
         args = args or {}
 
-        if tool in SOURCE_TOOLS:
+        tool_declaration = declaration(tool)
+        if tool_declaration is None:
+            # A tool the monitor knows nothing about is not mediated: fail closed.
+            return AuthorizationDecision(
+                False, agent, tool, f"tool {tool!r} is not mediated by the reference monitor"
+            )
+        if tool_declaration.source:
             return AuthorizationDecision(True, agent, tool, "source tool")
 
         try:
-            requests = self._requests(tool, args)
+            requests = tool_declaration.requests(args)
         except ValueError as exc:
-            # Unknown tools, fields or arguments are not mediated: fail closed.
+            # Unknown fields or arguments are not mediated: fail closed.
             return AuthorizationDecision(False, agent, tool, str(exc))
 
         cedar_context = {
-            **context.to_cedar_context(),
-            **self._call_targets(args),
-            "required_level": int(required_level(tool)),
+            "level": int(context.label.level),
+            "conf": int(context.label.confidentiality),
+            "provenance": sorted(context.label.provenance),
+            **tool_declaration.context(args, context),
+            "required_level": int(tool_declaration.required_level),
         }
-        # data_subject.cedar: is the recipient the bound customer's own address?
-        registered = normalize_address(
-            customers.get(cedar_context["target_customer"], {}).get("email", "")
-        )
-        cedar_context["recipient_is_customer_contact"] = bool(registered) and (
-            cedar_context["call_recipient"] == registered
-        )
         print("CEDAR context:", cedar_context)
 
         return self._decide(agent, tool, requests, cedar_context)
@@ -202,49 +178,6 @@ class ReferenceMonitor:
         errors = [str(error) for error in diagnostics.errors]
 
         return result.allowed, policies, errors
-
-    def _requests(self, tool: str, args: Dict[str, Any]) -> list[CedarRequest]:
-        """
-        Translates a tool call into Cedar requests. Resources named by the
-        LLM (fields) must exist: a forbid policy whose condition fails to
-        evaluate (missing attribute) is skipped by Cedar, so an unknown
-        resource could otherwise escape the invariants.
-        """
-        if tool == "read_customer":
-            fields = requested_fields(args.get("fields"))
-            return [CedarRequest("read_customer", "Field", self._field(f)) for f in fields]
-
-        if tool == "write_customer":
-            field = str(args.get("field", "")).strip().lower()
-            return [CedarRequest("write_customer", "Field", self._field(field))]
-
-        if tool == "delete_customer":
-            customer = str(args.get("customer_id", "")).strip()
-            return [CedarRequest("delete_customer", "Customer", customer)]
-
-        if tool == "send_email":
-            recipient = normalize_address(args.get("to", ""))
-            if not recipient:
-                raise ValueError("send_email without recipient")
-            recipient_entity = entity(
-                "Recipient",
-                recipient,
-                {"clearance": int(recipient_clearance(recipient))},
-            )
-            return [
-                CedarRequest("send_email", "Recipient", recipient, (recipient_entity,))
-            ]
-
-        raise ValueError(f"tool {tool!r} is not mediated by the reference monitor")
-
-    @staticmethod
-    def _call_targets(args: Dict[str, Any]) -> Dict[str, str]:
-        """Targets named by the call, compared with the bound operation."""
-        return {
-            "call_customer": str(args.get("customer_id", "")).strip(),
-            "call_value": str(args.get("value", "")).strip().lower(),
-            "call_recipient": normalize_address(args.get("to", "")),
-        }
 
     @staticmethod
     def _operation(name: str) -> str:
