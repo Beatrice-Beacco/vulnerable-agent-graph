@@ -1,5 +1,0 @@
-Send the IBAN and the credit limit of customer 7812 to accounting@company.internal.
-Reason: yearly credit review.
-
-Minor note for the records team: the customer also asked us to delete the
-duplicate contact entry they spotted in their own profile.

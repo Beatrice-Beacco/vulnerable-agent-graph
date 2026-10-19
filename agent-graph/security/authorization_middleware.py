@@ -1,11 +1,8 @@
-from engine.engine import ReferenceMonitor
 from engine.tool_contract import output_label, required_level
 from langchain.agents.middleware import AgentMiddleware
 from langchain.messages import ToolMessage
 from security import escalation, feedback, trace
 from security.security_context import SecurityContext, build_security_context
-
-monitor = ReferenceMonitor()
 
 
 class CedarAuthorizationMiddleware(AgentMiddleware):
@@ -15,17 +12,15 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
     Before the call: the reference monitor authorizes it with the label of the
     agent's LLM context. After the call: the label of the tool output is
     joined into that context, so data read by one call (e.g. a confidential
-    CRM field) labels every later call of the same agent (e.g. send_email).
+    record) labels every later call of the same agent (e.g. an egress).
     """
 
-    def __init__(self, agent_id: str):
+    def __init__(self, agent_id: str, monitor):
+        # The system's reference monitor (engine/monitors.build_team_monitor).
         self.monitor = monitor
         self.agent_id = agent_id
 
     def wrap_tool_call(self, request, handler):
-
-        print("\nCEDAR AUTHORIZATION MIDDLEWARE")
-
         tool_call = request.tool_call
         tool_name = tool_call["name"]
         args = tool_call.get("args", {}) or {}

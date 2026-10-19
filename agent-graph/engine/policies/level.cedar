@@ -8,12 +8,7 @@
 @id("insufficient-level")
 forbid (
   principal,
-  action in [
-    Action::"read_customer",
-    Action::"write_customer",
-    Action::"delete_customer",
-    Action::"send_email"
-  ],
+  action in Action::"tool_call",
   resource
 )
 when { context.level < context.required_level };

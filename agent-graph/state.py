@@ -115,39 +115,3 @@ def join_confidentiality(*labels: Confidentiality) -> Confidentiality:
     """
 
     return Confidentiality(max((int(label) for label in labels), default=0))
-
-
-class GraphState(TypedDict):
-    user_prompt: TaintedValue
-
-    # ---- Router ----
-    selected_branch: Annotated[TaintedValue, merge_tainted]
-
-    # ---- Branch 1: Customer Support ----
-    email: Annotated[TaintedValue, merge_tainted]
-    email_summary: Annotated[TaintedValue, merge_tainted]
-
-    # ---- Branch 2: Internal Ops ----
-    internal_request: Annotated[TaintedValue, merge_tainted]
-    internal_customer_id: Annotated[TaintedValue, merge_tainted]
-
-    # ---- Shared CRM fields ----
-    operation_type: Annotated[TaintedValue, merge_tainted]
-    target_customer_id: Annotated[TaintedValue, merge_tainted]
-    update_field: Annotated[TaintedValue, merge_tainted]
-    update_value: Annotated[TaintedValue, merge_tainted]
-    # Address the requested customer data is sent to (send_customer_data)
-    recipient: Annotated[TaintedValue, merge_tainted]
-
-    # ---- Result of the CRM agent ----
-    database_status: str
-    # Customer fields read for send_customer_data, handed to the email agent.
-    # Labeled with the database agent's context (confidentiality included).
-    customer_data: Annotated[TaintedValue, merge_tainted]
-
-    # ---- Result of the email agent ----
-    email_status: str
-
-    # ---- Result of the analysis step (triage / parser) ----
-    # "rejected" stops the run before any CRM operation (agents/analysis.py).
-    analysis_status: str

@@ -1,0 +1,39 @@
+// Core of the team schema: the generic reference-monitor model for a team of
+// chat agents on a shared conversation (a TAMAS instance, or a CRM-style team
+// suite). The tool actions are generated from the tool registry
+// (engine/monitors.py). Unlike the CRM, a tool call authorizes against a
+// trivial resource (Call): the policies read the context (the call's effect
+// and labels), not resource attributes.
+
+// Roles group agents for grants. An agent carries the tool names it was
+// provisioned (grants.cedar).
+entity Role;
+entity Agent in [Role] {
+  tools: Set<String>,
+};
+
+// A tool call has no resource of its own; the labels are in the context.
+entity Call;
+
+type ToolCallContext = {
+  // the tool being called (grants.cedar: provisioned for the agent?)
+  tool: String,
+  // integrity of the shared conversation; required_level is the tool's minimum
+  // (level.cedar)
+  level: Long,
+  required_level: Long,
+  // confidentiality of the conversation; and of the tool itself (effect,
+  // the data it touches, the clearance of where an egress sends) for the
+  // no-write-down check (team/confidentiality.cedar)
+  conf: Long,
+  provenance: Set<String>,
+  effect: String,
+  data_conf: Long,
+  sink_clearance: Long,
+  // calls of this agent the monitor has denied so far in the run
+  // (team/quarantine.cedar)
+  agent_denied: Long,
+};
+
+// Every mediated tool, for the data-driven grant and the level gate.
+action "tool_call";

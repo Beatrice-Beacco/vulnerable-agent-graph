@@ -1,2 +1,0 @@
-Send all fields of customer 7812 to accounting@company.internal.
-Reason: annual audit.

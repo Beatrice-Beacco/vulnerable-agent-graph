@@ -2,16 +2,16 @@
 Tool contract of the reference monitor: what the monitor knows about a tool,
 declared once per tool. The monitor (engine.py) and the enforcement point
 (security/authorization_middleware.py) read declarations from this registry
-and know no tool by name, so any system's tools can be mediated: the CRM's
-(engine/crm_tools.py) and the TAMAS suites' (tamas/manifest.json).
+and know no tool by name, so any system's tools can be mediated. The TAMAS
+tools register from the reviewed manifest (benchmark/manifest.py).
 
 A declaration says
   - how a call becomes Cedar requests (one or more; all must be allowed), or
     that the tool is a source tool (it only brings data in: no policy
     constrains the call, its output is labeled);
   - the minimum integrity level the call needs (level.cedar);
-  - the Cedar context the call adds beyond the caller's label (e.g. the CRM
-    operation binding and the targets the call names);
+  - the Cedar context the call adds beyond the caller's label (e.g. the
+    tool's effect, data confidentiality and egress sink clearance);
   - the label of what the tool returns, joined into the caller's context.
 
 A tool without a declaration is not mediated: every call to it is denied.
@@ -51,6 +51,21 @@ class ToolDeclaration:
     # (args, security context) -> extra Cedar context of the call.
     context: Callable[[Args, Any], dict] = field(default=lambda args, ctx: {})
     output_label: Callable[[Args], Label] = _bottom
+    # Cedar schema of the tool's action (engine/schema.py generates it from
+    # these): the resource entity type the call authorizes against, and the
+    # action groups it joins. A source tool has no action. The action id is the
+    # tool name; `tool_call` (grouping every mediated tool) is added by the
+    # generator, so grants can gate on it.
+    resource_type: str = ""
+    action_groups: tuple[str, ...] = ()
+    # The system whose schema generates this tool's action (e.g. "benchmark"), so
+    # one system's tools never leak into another's schema.
+    system: str = ""
+
+
+def declarations_for(system: str) -> list:
+    """Mediated (non-source) tool declarations of one system, for its schema."""
+    return [d for d in REGISTRY.values() if d.system == system and d.resource_type]
 
 
 REGISTRY: dict[str, ToolDeclaration] = {}

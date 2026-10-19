@@ -2,12 +2,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from cedarpy import is_authorized
-from security.security_context import SecurityContext
-from tools.crm import FIELD_CLASSIFICATION
 
-from . import crm_tools  # noqa: F401 -- registers the CRM's tool declarations
-from .facts import canonical, request_facts
-from .schema import ENTITIES, OPERATION_EVIDENCE, POLICIES, SCHEMA
+from security.security_context import SecurityContext
+
 from .tool_contract import CedarRequest, declaration, required_level  # noqa: F401
 
 
@@ -27,10 +24,15 @@ class AuthorizationDecision:
 
 
 class ReferenceMonitor:
-    # Policy store; a subclass may bring its own (tamas/monitor.py does).
-    schema = SCHEMA
-    policies = POLICIES
-    entities = ENTITIES
+    """The reference monitor. One instance per system it guards, built with
+    that system's schema, policies and entities (engine/monitors.py). The
+    decision logic is the same for every system -- that is the point of making
+    it data-driven."""
+
+    def __init__(self, schema: str, policies: str, entities: list):
+        self.schema = schema
+        self.policies = policies
+        self.entities = entities
 
     def check_tool(
         self,
@@ -42,9 +44,9 @@ class ReferenceMonitor:
         """
         Authorizes the call `tool(args)` of `agent`, given the label of the
         agent's context. The tool's declaration (engine/tool_contract.py)
-        turns the call into Cedar requests -- possibly several, e.g. one per
-        CRM field read: all of them must be allowed -- and adds the Cedar
-        context the call contributes beyond the caller's label.
+        turns the call into Cedar requests -- possibly several, all of which
+        must be allowed -- and adds the Cedar context the call contributes
+        beyond the caller's label.
         """
         args = args or {}
 
@@ -64,80 +66,31 @@ class ReferenceMonitor:
             return AuthorizationDecision(False, agent, tool, str(exc))
 
         cedar_context = {
+            "tool": tool,  # grants.cedar: is the tool provisioned for the agent?
             "level": int(context.label.level),
             "conf": int(context.label.confidentiality),
             "provenance": sorted(context.label.provenance),
             **tool_declaration.context(args, context),
             "required_level": int(tool_declaration.required_level),
         }
-        print("CEDAR context:", cedar_context)
 
         return self._decide(agent, tool, requests, cedar_context)
 
-    def check_analysis(
-        self, agent: str, analysis: dict, request: str, context: SecurityContext
-    ) -> AuthorizationDecision:
-        """
-        Authorizes an analysis: the structured CRM operation `agent` derived
-        from `request`. validation.cedar and quarantine.cedar decide, from
-        facts about the analysis, the request and the analyst.
-        """
-        op = canonical(analysis)
-        try:
-            resource = self._operation(op["operation"])
-            fields = [self._field(name) for name in op["fields"]]
-        except ValueError as exc:
-            return AuthorizationDecision(False, agent, "check_analysis", str(exc))
-
-        cedar_context = {
-            "level": int(context.label.level),
-            "conf": int(context.label.confidentiality),
-            "provenance": sorted(context.label.provenance),
-            "customer_id": op["customer_id"],
-            "fields": fields,
-            "field_count": len(fields),
-            "value": op["value"],
-            "recipient": op["recipient"],
-            **request_facts(request, op["value"]),
-            "denied_calls": context.denied_calls,
-        }
-        request_ = CedarRequest("check_analysis", "Operation", resource)
-        return self._decide(agent, "check_analysis", [request_], cedar_context)
-
-    def adopt_analysis(
-        self, agent: str, analysis: dict, conflicting: int, request: str
-    ) -> AuthorizationDecision:
-        """
-        Authorizes a checked analysis to become the operation the executors
-        run, given how many other checked analyses describe another one
-        (consensus.cedar) and how many operations the request supports
-        (disambiguation.cedar).
-        """
-        try:
-            resource = self._operation(canonical(analysis)["operation"])
-        except ValueError as exc:
-            return AuthorizationDecision(False, agent, "adopt_analysis", str(exc))
-        cedar_request = CedarRequest("adopt_analysis", "Operation", resource)
-        return self._decide(
-            agent,
-            "adopt_analysis",
-            [cedar_request],
-            {
-                "conflicting_analyses": conflicting,
-                "operations_in_request": self._operations_in_request(request),
-            },
+    @property
+    def _agent_ids(self) -> frozenset:
+        return frozenset(
+            e["uid"]["id"] for e in self.entities if e["uid"]["type"] == "Agent"
         )
-
-    @staticmethod
-    def _operations_in_request(request: str) -> int:
-        """How many of the three operations the request supports by its words."""
-        words = set(request_facts(request, "")["request_words"])
-        return sum(1 for evidence in OPERATION_EVIDENCE.values() if set(evidence) & words)
 
     def _decide(
         self, agent: str, name: str, requests: list, cedar_context: dict
     ) -> AuthorizationDecision:
         """All the Cedar requests of one decision must be allowed."""
+        # Fail closed for a principal the system never declared: the grant
+        # reads its attributes (principal.tools), which a missing entity cannot
+        # resolve. In a graph built from the spec this cannot happen.
+        if agent not in self._agent_ids:
+            return AuthorizationDecision(False, agent, name, f"unknown principal {agent!r}")
         permitted, permit_ids = [], []
         for request in requests:
             allowed, policies, errors = self.authorize(agent, request, cedar_context)
@@ -178,17 +131,3 @@ class ReferenceMonitor:
         errors = [str(error) for error in diagnostics.errors]
 
         return result.allowed, policies, errors
-
-    @staticmethod
-    def _operation(name: str) -> str:
-        # Unknown operations fail closed, like unknown fields: a missing
-        # entity would make the forbid policies on it skip.
-        if name not in OPERATION_EVIDENCE:
-            raise ValueError(f"unknown operation {name!r}")
-        return name
-
-    @staticmethod
-    def _field(name: str) -> str:
-        if name not in FIELD_CLASSIFICATION:
-            raise ValueError(f"unknown customer field {name!r}")
-        return name
