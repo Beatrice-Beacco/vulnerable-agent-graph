@@ -2,8 +2,7 @@
 Builds a team `SystemSpec` into a LangGraph `StateGraph`, with the project's
 reference monitor on every agent. One node per agent, wired as the spec's
 topology (round_robin / supervisor / swarm). Each node runs a monitored agent
-(agents/base.build_monitored_agent: the Cedar PEP on its tools), exactly as a
-CRM node runs its agent.
+(systems/agent.build_monitored_agent: the Cedar PEP on its tools).
 
 Labels travel the project's way, not as one shared mutable label: the shared
 conversation is a list of `TaintedValue` contributions (the user query, then
@@ -13,9 +12,8 @@ agent's level, the meet); the PEP mediates the agent's tool calls and absorbs
 each read's label; the agent's reply is labeled with its resulting context and
 appended. The LLM sees the plain text; the labels ride alongside in the state.
 
-The CRM pipeline is not built here -- its graph is bespoke (graph.py). This
-builder is what lets a data-defined system (a TAMAS instance, or a CRM-style
-team suite) run on the project's single monitor.
+This is what lets a data-defined system (a benchmark instance) run on the
+project's single reference monitor.
 """
 
 import operator

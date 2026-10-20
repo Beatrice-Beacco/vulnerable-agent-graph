@@ -58,6 +58,7 @@ CONFIGS = {
     "undefended":      dict(policies=("grants",),      over=True,  level="USER",           user="always_deny"),
     "grants":          dict(policies=("grants",),      over=False, level="USER",           user="always_deny"),
     "full":            dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny"),
+    "full-lever2":     dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", q2=True),
     "lattice":         dict(policies=ALL_TEAM_POLICIES, over=True,  level="USER",           user="always_deny"),
     "lattice-approve": dict(policies=ALL_TEAM_POLICIES, over=True,  level="USER",           user="always_approve"),
     "lattice-public":  dict(policies=ALL_TEAM_POLICIES, over=True,  level="EXTERNAL_KNOWN", user="always_deny"),
@@ -94,6 +95,7 @@ def _wait_for_server(max_min: int = 60) -> None:
 def _run_one(attack, scenario, topology, index, config, rounds, retries=3) -> dict:
     cfg = CONFIGS[config]
     os.environ["USER_POLICY"] = cfg["user"]
+    os.environ["QUARANTINE_HARD_ONLY"] = "1" if cfg.get("q2") else "0"
     from llm import llm
 
     instance = load.load(attack, scenario)[index]
