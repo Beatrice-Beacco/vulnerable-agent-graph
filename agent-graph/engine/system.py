@@ -1,8 +1,8 @@
 """
 A system the reference monitor guards, described as data: its agents (each
 with a role and the tools it is provisioned), so the monitor's principals,
-roles and grants are not a fixed list but come from the spec. A TAMAS instance
-is built into one of these (benchmark/system.py).
+roles and grants are not a fixed list but come from the spec. A benchmark
+instance is built into one of these (benchmark/system.py).
 
 The agents, roles and provisioned tools build the Cedar Agent entities and the
 data-driven grant; the prompt and topology drive the team graph
@@ -37,12 +37,10 @@ class AgentSpec:
 class SystemSpec:
     name: str
     agents: tuple[AgentSpec, ...]
-    # Graph shape (P3): "pipeline" for the CRM, or a team topology.
-    topology: str = "pipeline"
-    # Policy sets to load for this system (engine/schema.py); "generic" always
-    # applies, "crm" adds the CRM-only policies (binding, data_subject, plan
-    # checks).
-    policy_sets: tuple[str, ...] = ("generic",)
+    # Team topology of the graph (systems/graph.py): round_robin, supervisor
+    # or swarm. Which policies guard the system is chosen when its monitor is
+    # built (engine/monitors.build_team_monitor), not here.
+    topology: str = "round_robin"
 
     def roles(self) -> list[str]:
         return sorted({a.role for a in self.agents if a.role})

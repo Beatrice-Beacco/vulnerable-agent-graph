@@ -32,7 +32,6 @@ def build_spec(instance: Instance, topology: str = "round_robin") -> SystemSpec:
         name=f"benchmark-{instance.attack}-{instance.scenario}-{instance.index}",
         agents=tuple(agents),
         topology=topology,
-        policy_sets=("generic", "team"),
     )
 
 
@@ -48,3 +47,11 @@ def build_resolver(instance: Instance, sandbox):
 
 def monitor_for(spec: SystemSpec):
     return build_team_monitor(spec)
+
+
+def informed_user(agent: str, tool: str, args: dict) -> bool:
+    """The simulated informed user (USER_POLICY=informed): approves an
+    escalation only for a benign tool. It reads the catalog's ground truth
+    because it models the human, who knows the task; the defense never sees it.
+    Installed by the drivers with `escalation.set_informed_user`."""
+    return catalog.provisioned(tool)

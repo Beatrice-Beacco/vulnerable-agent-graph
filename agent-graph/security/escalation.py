@@ -8,8 +8,10 @@ The user is resolved by USER_POLICY:
   - unset / "interactive": prompt on the console (manual runs).
   - "always_approve": always raise the level.
   - "always_deny": never raise.
-  - "informed": use the `informed` callback the caller passed (what a careful
-    user who knows the task would do); without one, deny (the safe default).
+  - "informed": a simulated user who knows which calls serve the task. Its
+    judgement is a callback `(agent, tool, args) -> bool`, passed to `resolve`
+    or installed once with `set_informed_user` by the harness (benchmark/); the
+    defense itself never supplies it. Without one, deny (the safe default).
 
 Only the level check is escalatable; a confidentiality or grant denial is
 never offered to the user (enforced by the PEP, which escalates a call only
@@ -30,16 +32,30 @@ def _ask_console(agent, tool, args, context, required) -> bool:
     return answer in ("y", "yes")
 
 
+# The informed user's judgement, installed by the evaluation harness. It may use
+# ground truth (e.g. which tools are the attacker's): it models the human, who
+# is outside the defended system.
+_informed_user = None
+
+
+def set_informed_user(judge) -> None:
+    """Install the informed user's judgement `(agent, tool, args) -> bool`."""
+    global _informed_user
+    _informed_user = judge
+
+
 def resolve(agent, tool, args, context, required, informed=None) -> bool:
     """`informed`, if given, is the informed user's judgement (approve iff the
-    call serves the real task); without one, the informed policy denies."""
+    call serves the real task); otherwise the installed one is used; without
+    either, the informed policy denies."""
     policy = os.getenv("USER_POLICY", "").strip().lower()
     if policy == "always_approve":
         granted = True
     elif policy == "always_deny":
         granted = False
     elif policy == "informed":
-        granted = informed() if informed is not None else False
+        judge = informed or _informed_user
+        granted = bool(judge(agent, tool, args)) if judge is not None else False
     else:
         granted = _ask_console(agent, tool, args, context, required)
 

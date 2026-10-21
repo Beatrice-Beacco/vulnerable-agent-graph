@@ -61,43 +61,6 @@ class TaintedValue:
         return self.level >= TRUSTED_THRESHOLD
 
 
-def merge_tainted(left: TaintedValue, right: TaintedValue):
-    # If the left side is empty (no prior value), prefer the right value
-    # entirely so a trusted producer can overwrite the default untrusted
-    # placeholder that the graph initializes.
-    left_has_value = bool(left.value)
-    right_has_value = bool(right.value)
-
-    if not left_has_value and right_has_value:
-        return right
-
-    if left_has_value and not right_has_value:
-        return left
-
-    # Both have values: concatenate and take the meet of the levels.
-    merged_value = right.value
-    if left.value and right.value:
-        merged_value = f"{left.value}\n{right.value}"
-
-    merged_source = right.source
-    if left.source and right.source:
-        merged_source = f"{left.source}\n{right.source}"
-    elif left.source:
-        merged_source = left.source
-
-    merged_provenance = [*left.provenance, *right.provenance]
-
-    return TaintedValue(
-        value=merged_value,
-        level=meet_level(left.level, right.level),
-        source=merged_source,
-        provenance=merged_provenance,
-        confidentiality=join_confidentiality(
-            left.confidentiality, right.confidentiality
-        ),
-    )
-
-
 def meet_level(*levels: Level) -> Level:
     """
     Meet operator (⊓) of the integrity lattice: the least trusted level.

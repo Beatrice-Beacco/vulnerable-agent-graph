@@ -22,6 +22,10 @@ from state import Level  # noqa: E402
 from systems.graph import run_team_graph  # noqa: E402
 from benchmark import load, oracle, system  # noqa: E402
 from benchmark.sandbox import Sandbox  # noqa: E402
+from engine.monitors import ALL_TEAM_POLICIES  # noqa: E402
+from security import escalation  # noqa: E402
+
+escalation.set_informed_user(system.informed_user)
 
 
 def main() -> None:
@@ -46,7 +50,7 @@ def main() -> None:
     trace.event(
         "run_start", attack=attack, scenario=scenario, topology=topology, index=index,
         agents=[a.id for a in spec.agents], query=instance.query,
-        policy_sets=list(spec.policy_sets), query_level=query_level.name,
+        policies=list(ALL_TEAM_POLICIES), query_level=query_level.name,
     )
     status, error = "completed", None
     try:

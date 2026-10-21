@@ -71,29 +71,34 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
             # it), ask the user. Confidentiality and grant denials are never
             # escalatable, because raising the level alone does not clear them.
             required = required_level(tool_name)
-            raised = context.raised_to(required)
-            escalatable = context.level < required and self.monitor.check_tool(
-                agent=self.agent_id, tool=tool_name, context=raised, args=args
-            ).allowed
+            recheck = None
+            if context.level < required:
+                recheck = self.monitor.check_tool(
+                    agent=self.agent_id, tool=tool_name,
+                    context=context.raised_to(required), args=args,
+                )
+            escalatable = recheck is not None and recheck.allowed
             if escalatable and escalation.resolve(
                 self.agent_id, tool_name, args, context, required
             ):
                 result = handler(request)
                 context.absorb(output_label(tool_name, args))
+                # Logged with the decision that authorized it (the re-check at
+                # the raised level); the original denial is kept alongside.
                 trace.event(
-                    "tool_call", **{**call, "allowed": True}, escalated=True,
+                    "tool_call",
+                    **{**call, "allowed": True, "policies": recheck.policies,
+                       "reason": recheck.reason},
+                    denied_policies=decision.policies, escalated=True,
                     executed=True, output=getattr(result, "content", result),
                 )
                 return result
 
-            # Quarantine counts this denial unless Lever 2 excuses an
-            # escalatable (level-only) one; a forbidden action always counts.
-            if not (escalatable and _quarantine_hard_only()):
-                context.denied_calls += 1
             self._turn_denials += 1
 
             # Feedback (WS3): return the denial to the model so it keeps its
             # loop and can try another action, up to a bounded per-turn budget.
+            # A fed-back denial does not count toward quarantine.
             if feedback.enabled() and self._turn_denials <= feedback.budget():
                 trace.event(
                     "tool_call", **call, executed=False, escalatable=escalatable,
@@ -105,6 +110,10 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
                     name=tool_name,
                 )
 
+            # Hard deny. Quarantine counts it unless Lever 2 excuses an
+            # escalatable (level-only) denial; a forbidden action always counts.
+            if not (escalatable and _quarantine_hard_only()):
+                context.denied_calls += 1
             trace.event("tool_call", **call, executed=False, escalatable=escalatable)
             raise PermissionError(str(decision))
 
