@@ -36,12 +36,12 @@ def build_spec(instance: Instance, topology: str = "round_robin") -> SystemSpec:
     )
 
 
-def build_resolver(instance: Instance):
-    """Maps a tool name to its LangChain tool object, across the instance's
-    agents."""
+def build_resolver(instance: Instance, sandbox):
+    """Maps a tool name to its LangChain tool object (backed by the sandbox),
+    across the instance's agents."""
     tool_map = {}
     for agent in instance.agents:
-        for tool in benchmark_tools.tools_for_agent(agent.name):
+        for tool in benchmark_tools.tools_for_agent(agent.name, sandbox):
             tool_map[tool.name] = tool
     return lambda name: tool_map[name]
 

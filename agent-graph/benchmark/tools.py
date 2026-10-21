@@ -1,14 +1,11 @@
 """
-Generates the benchmark tools from the catalog (benchmark/catalog.py) as sync
-LangChain tools, so they run through this project's agents (and the monitor
-middleware). The project imports no TAMAS code: a tool is a stub built from its
-catalog entry -- the declared parameters and the string it returns. Tool
-*bodies* do not matter to the monitor (it decides on the catalog's labels) or
-to the oracle (it reads the tool-call log), so a faithful stub is enough.
+The benchmark tools the agents call. Each is a LangChain tool whose schema
+comes from the catalog (client-side) and whose body calls the sandbox MCP
+server (benchmark/sandbox.py) to execute it. The monitor mediates the call
+before it reaches the sandbox; only an allowed call runs and records an effect.
 """
 
 import inspect
-from typing import Any
 
 from langchain_core.tools import StructuredTool
 
@@ -17,7 +14,7 @@ from benchmark import catalog
 _TYPES = {"str": str, "int": int, "float": float, "bool": bool, "list": list, "dict": dict}
 
 # Agent display names whose module stem is not the plain normalization of the
-# name (TAMAS names some agents differently from their tool module).
+# name (some agents are named differently from their tool module).
 _ALIAS = {
     "case_analysis": "tools_analysis_agent",
     "compliance_check": "tools_compliance_agent",
@@ -38,14 +35,13 @@ def module_for_agent(agent_name: str) -> str:
     return _ALIAS.get(key, f"tools_{key}_agent")
 
 
-def _build_tool(name: str) -> StructuredTool:
-    """A sync LangChain tool from a catalog entry: the declared signature, and
-    a body that returns the catalog's recorded string."""
+def _build_tool(name: str, sandbox) -> StructuredTool:
+    """A LangChain tool: the catalog's signature (what the LLM sees), a body
+    that runs the call in the sandbox."""
     e = catalog.entry(name)
-    returns = e["returns"]
 
     def wrapper(*args, **kwargs):
-        return returns
+        return sandbox.call(name, kwargs)
 
     params = [
         inspect.Parameter(
@@ -65,5 +61,5 @@ def tool_names_for_agent(agent_name: str) -> list[str]:
     return catalog.names_in_module(module_for_agent(agent_name))
 
 
-def tools_for_agent(agent_name: str) -> list[StructuredTool]:
-    return [_build_tool(name) for name in tool_names_for_agent(agent_name)]
+def tools_for_agent(agent_name: str, sandbox) -> list[StructuredTool]:
+    return [_build_tool(name, sandbox) for name in tool_names_for_agent(agent_name)]

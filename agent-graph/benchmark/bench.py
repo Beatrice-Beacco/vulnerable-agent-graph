@@ -49,6 +49,7 @@ from security import trace  # noqa: E402
 from state import Level  # noqa: E402
 from systems.graph import run_team_graph  # noqa: E402
 from benchmark import load, oracle, system  # noqa: E402
+from benchmark.sandbox import Sandbox  # noqa: E402
 
 ATTACKS = ["byzantine", "colluding", "contradicting", "dpi", "ipi", "impersonation"]
 SCENARIOS = ["news", "education", "finance", "healthcare", "legal"]
@@ -92,7 +93,7 @@ def _wait_for_server(max_min: int = 60) -> None:
             time.sleep(30)
 
 
-def _run_one(attack, scenario, topology, index, config, rounds, retries=3) -> dict:
+def _run_one(sandbox, attack, scenario, topology, index, config, rounds, retries=3) -> dict:
     cfg = CONFIGS[config]
     os.environ["USER_POLICY"] = cfg["user"]
     os.environ["QUARANTINE_HARD_ONLY"] = "1" if cfg.get("q2") else "0"
@@ -103,11 +104,12 @@ def _run_one(attack, scenario, topology, index, config, rounds, retries=3) -> di
     if cfg["over"]:
         spec = overprovision(spec)
     monitor = build_team_monitor(spec, policies=cfg["policies"])
-    resolver = system.build_resolver(instance)
+    resolver = system.build_resolver(instance, sandbox)
     query_level = Level[cfg["level"]]
 
     last_err = None
     for _ in range(retries):
+        sandbox.reset()
         log_path = trace.LOG.open(f"benchmark_{attack}_{scenario}_{topology}_{index}_{config}")
         trace.event(
             "run_start", attack=attack, scenario=scenario, topology=topology, index=index,
@@ -119,7 +121,7 @@ def _run_one(attack, scenario, topology, index, config, rounds, retries=3) -> di
             run_team_graph(spec, llm, resolver, instance.query,
                            query_level=query_level, max_rounds=rounds, monitor=monitor)
             trace.event("run_end", status="completed", error=None)
-            v = oracle.verify(log_path)
+            v = oracle.verify(log_path, sandbox.state())
             v["config"] = config
             return v
         except Exception as exc:  # noqa: BLE001
@@ -129,7 +131,7 @@ def _run_one(attack, scenario, topology, index, config, rounds, retries=3) -> di
     return {
         "attack": attack, "scenario": scenario, "topology": topology, "index": index,
         "config": config, "status": "error", "error": last_err, "aria": None,
-        "attacker_executed": [], "attacker_denied": [], "tools_executed": [], "benign_executed": 0,
+        "harm": [], "attacker_denied": [], "benign_executed": 0,
     }
 
 
@@ -151,16 +153,20 @@ def run_matrix() -> None:
     todo = [p for p in planned if p not in done]
     print(f"planned={len(planned)} done={len(set(planned) & done)} todo={len(todo)}", flush=True)
 
-    for n, (a, s, t, i, c) in enumerate(todo, 1):
-        print(f"[{n}/{len(todo)}] {a} {s} {t} idx={i} {c}", flush=True)
-        started = time.time()
-        rec = _run_one(a, s, t, i, c, rounds)
-        rec["seconds"] = round(time.time() - started, 1)
-        with RESULTS.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        print(f"    aria={rec.get('aria')} exec={rec.get('attacker_executed')} "
-              f"denied_by={rec.get('attacker_denied_by')} benign={rec.get('benign_executed')} "
-              f"({rec['seconds']}s)", flush=True)
+    sandbox = Sandbox()
+    try:
+        for n, (a, s, t, i, c) in enumerate(todo, 1):
+            print(f"[{n}/{len(todo)}] {a} {s} {t} idx={i} {c}", flush=True)
+            started = time.time()
+            rec = _run_one(sandbox, a, s, t, i, c, rounds)
+            rec["seconds"] = round(time.time() - started, 1)
+            with RESULTS.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            print(f"    aria={rec.get('aria')} harm={rec.get('harm')} "
+                  f"denied_by={rec.get('attacker_denied_by')} benign={rec.get('benign_executed')} "
+                  f"({rec['seconds']}s)", flush=True)
+    finally:
+        sandbox.close()
 
 
 def _safety(counts: Counter, n: int) -> float:

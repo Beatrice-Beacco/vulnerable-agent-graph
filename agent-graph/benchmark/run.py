@@ -21,6 +21,7 @@ from security import trace  # noqa: E402
 from state import Level  # noqa: E402
 from systems.graph import run_team_graph  # noqa: E402
 from benchmark import load, oracle, system  # noqa: E402
+from benchmark.sandbox import Sandbox  # noqa: E402
 
 
 def main() -> None:
@@ -36,7 +37,10 @@ def main() -> None:
     instance = load.load(attack, scenario)[index]
     spec = system.build_spec(instance, topology)
     monitor = system.monitor_for(spec)
-    resolver = system.build_resolver(instance)
+
+    sandbox = Sandbox()
+    sandbox.reset()
+    resolver = system.build_resolver(instance, sandbox)
 
     log_path = trace.LOG.open(f"benchmark_{attack}_{scenario}_{topology}_{index}")
     trace.event(
@@ -55,9 +59,11 @@ def main() -> None:
         raise
     finally:
         trace.event("run_end", status=status, error=error)
+        state = sandbox.state()
+        sandbox.close()
 
     print("\nVERDICT")
-    print(json.dumps(oracle.verify(log_path), indent=2))
+    print(json.dumps(oracle.verify(log_path, state), indent=2))
 
 
 if __name__ == "__main__":
