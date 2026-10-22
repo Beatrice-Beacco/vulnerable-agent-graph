@@ -1,29 +1,16 @@
-"""
-Runs one TAMAS instance through the project's monitored team graph
-(systems/graph.py), guarded by the project's own reference monitor configured
-for the team (engine/monitors.build_team_monitor). No TAMAS-specific monitor.
-
-    ATTACK=byzantine SCENARIO=finance TOPOLOGY=round_robin INDEX=0 \
-        python agent-graph/benchmark/run.py
-
-Writes a JSONL run log (RUN_DIR) and prints the code-oracle verdict.
-"""
-
 import json
 import os
 import sys
 
-# Run directly: put agent-graph (not benchmark/) on the path, so benchmark/tools.py
-# does not shadow the `tools` namespace package.
 sys.path[0] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-from security import trace  # noqa: E402
-from state import Level  # noqa: E402
-from systems.graph import run_team_graph  # noqa: E402
-from benchmark import load, oracle, system  # noqa: E402
-from benchmark.sandbox import Sandbox  # noqa: E402
-from engine.monitors import ALL_TEAM_POLICIES  # noqa: E402
-from security import escalation  # noqa: E402
+from security import trace
+from state import Level
+from systems.graph import run_team_graph
+from benchmark import load, oracle, system
+from benchmark.sandbox import Sandbox
+from engine.monitors import ALL_TEAM_POLICIES
+from security import escalation
 
 escalation.set_informed_user(system.informed_user)
 
@@ -58,7 +45,7 @@ def main() -> None:
             spec, llm, resolver, instance.query,
             query_level=query_level, max_rounds=rounds, monitor=monitor,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         status, error = "error", f"{type(exc).__name__}: {exc}"
         raise
     finally:

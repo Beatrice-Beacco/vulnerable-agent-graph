@@ -1,28 +1,7 @@
-"""
-Registers the benchmark tools with the project's reference monitor, from the
-tool catalog (benchmark/catalog.py). Each tool becomes a `ToolDeclaration` (system
-"benchmark") the monitor reads: its effect sets the required level and, for an
-egress, the no-write-down check; a read's output carries its declared label
-into the conversation. The call authorizes against a trivial `Call` resource --
-the policies decide on the context (the call's effect and labels), not resource
-attributes.
-
-Importing this module registers every tool once (idempotent).
-"""
-
-import os
-
 from engine.tool_contract import CedarRequest, ToolDeclaration, register
 from security.labels import Label
 from state import Confidentiality, Level
-from benchmark import catalog
 from benchmark.catalog import CATALOG
-
-
-def _whitelist_all() -> bool:
-    """Over-provisioning ablation: treat every tool as whitelisted so the grant
-    permits all (the lattice / undefended configs). Off by default."""
-    return os.getenv("WHITELIST_ALL", "0") == "1"
 
 
 def _declaration(name: str, entry: dict) -> ToolDeclaration:
@@ -32,13 +11,12 @@ def _declaration(name: str, entry: dict) -> ToolDeclaration:
     sink = Confidentiality[entry["sink_clearance"]] if entry["sink_clearance"] else Confidentiality.PUBLIC
     out = Level[entry["output_level"]] if entry["output_level"] else Level.SYSTEM
 
-    def context(args, ctx, _effect=effect, _dc=data_conf, _sink=sink, _name=name):
+    def context(args, ctx, _effect=effect, _dc=data_conf, _sink=sink):
         return {
             "effect": _effect,
             "data_conf": int(_dc),
             "sink_clearance": int(_sink),
             "agent_denied": int(getattr(ctx, "denied_calls", 0)),
-            "whitelisted": catalog.allowed(_name) or _whitelist_all(),
         }
 
     def output_label(args, _effect=effect, _out=out, _dc=data_conf, _name=name):

@@ -5,7 +5,7 @@ from cedarpy import is_authorized
 
 from security.security_context import SecurityContext
 
-from .tool_contract import CedarRequest, declaration, required_level  # noqa: F401
+from .tool_contract import CedarRequest, declaration, required_level
 
 
 @dataclass(frozen=True)
@@ -14,8 +14,6 @@ class AuthorizationDecision:
     agent: str
     tool: str
     reason: str
-    # Ids of the policies that decided: the forbids of a deny, the permits
-    # of an allow.
     policies: tuple[str, ...] = ()
 
     def __str__(self) -> str:
@@ -24,11 +22,6 @@ class AuthorizationDecision:
 
 
 class ReferenceMonitor:
-    """The reference monitor. One instance per system it guards, built with
-    that system's schema, policies and entities (engine/monitors.py). The
-    decision logic is the same for every system -- that is the point of making
-    it data-driven."""
-
     def __init__(self, schema: str, policies: str, entities: list):
         self.schema = schema
         self.policies = policies
@@ -41,18 +34,10 @@ class ReferenceMonitor:
         context: SecurityContext,
         args: Optional[Dict[str, Any]] = None,
     ) -> AuthorizationDecision:
-        """
-        Authorizes the call `tool(args)` of `agent`, given the label of the
-        agent's context. The tool's declaration (engine/tool_contract.py)
-        turns the call into Cedar requests -- possibly several, all of which
-        must be allowed -- and adds the Cedar context the call contributes
-        beyond the caller's label.
-        """
         args = args or {}
 
         tool_declaration = declaration(tool)
         if tool_declaration is None:
-            # A tool the monitor knows nothing about is not mediated: fail closed.
             return AuthorizationDecision(
                 False, agent, tool, f"tool {tool!r} is not mediated by the reference monitor"
             )
@@ -62,11 +47,10 @@ class ReferenceMonitor:
         try:
             requests = tool_declaration.requests(args)
         except ValueError as exc:
-            # Unknown fields or arguments are not mediated: fail closed.
             return AuthorizationDecision(False, agent, tool, str(exc))
 
         cedar_context = {
-            "tool": tool,  # informational; the grant gates on context.whitelisted
+            "tool": tool,
             "level": int(context.label.level),
             "conf": int(context.label.confidentiality),
             "provenance": sorted(context.label.provenance),
@@ -85,12 +69,6 @@ class ReferenceMonitor:
     def _decide(
         self, agent: str, name: str, requests: list, cedar_context: dict
     ) -> AuthorizationDecision:
-        """All the Cedar requests of one decision must be allowed."""
-        # Fail closed for a principal the system never declared. The grant is a
-        # global whitelist on the tool (context.whitelisted), not a principal
-        # attribute, so Cedar would otherwise permit an unknown agent any
-        # whitelisted tool; this guard is what denies it. In a graph built from
-        # the spec this cannot happen.
         if agent not in self._agent_ids:
             return AuthorizationDecision(False, agent, name, f"unknown principal {agent!r}")
         permitted, permit_ids = [], []
@@ -115,8 +93,6 @@ class ReferenceMonitor:
         )
 
     def authorize(self, agent: str, request: CedarRequest, cedar_context: dict):
-        # Structured uids: resource ids come from LLM output and must never be
-        # spliced into Cedar syntax.
         cedar_request = {
             "principal": {"type": "Agent", "id": agent},
             "action": {"type": "Action", "id": request.action},

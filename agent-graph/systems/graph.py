@@ -1,21 +1,3 @@
-"""
-Builds a team `SystemSpec` into a LangGraph `StateGraph`, with the project's
-reference monitor on every agent. One node per agent, wired as the spec's
-topology (round_robin / supervisor / swarm). Each node runs a monitored agent
-(systems/agent.build_monitored_agent: the Cedar PEP on its tools).
-
-Labels travel the project's way, not as one shared mutable label: the shared
-conversation is a list of `TaintedValue` contributions (the user query, then
-each agent's reply). An agent's turn builds its `SecurityContext` from all
-contributions so far (so a low-trust read by an earlier agent lowers this
-agent's level, the meet); the PEP mediates the agent's tool calls and absorbs
-each read's label; the agent's reply is labeled with its resulting context and
-appended. The LLM sees the plain text; the labels ride alongside in the state.
-
-This is what lets a data-defined system (a benchmark instance) run on the
-project's single reference monitor.
-"""
-
 import operator
 import os
 from typing import Annotated, Callable, TypedDict, cast
@@ -31,36 +13,28 @@ from security.trace import event
 from state import Level, TaintedValue
 from engine.system import SystemSpec
 
-# Graph steps per agent turn (a tool call is two): bounds a looping turn.
 RECURSION_LIMIT = int(os.getenv("TEAM_RECURSION_LIMIT", "40"))
 
 SUPERVISOR = "supervisor"
 TEAM_TOPOLOGIES = ("round_robin", "supervisor", "swarm")
 
-# A tool resolver maps a provisioned tool name to the tool object the agent calls.
 ToolResolver = Callable[[str], object]
 
 
 class TeamState(TypedDict):
-    messages: Annotated[list, operator.add]           # plain text, for the LLM
-    contributions: Annotated[list, operator.add]      # TaintedValue per turn, for labels
+    messages: Annotated[list, operator.add]
+    contributions: Annotated[list, operator.add]
     turns: int
     unvisited: list[str]
     next: str
-    denied: dict                                      # agent -> denied calls so far (quarantine)
+    denied: dict
 
 
 def _agent_tools(spec_agent, resolver: ToolResolver) -> list:
-    # The LLM is given every tool the agent is built with; the monitor's grant
-    # (a single global whitelist) denies any that are not whitelisted.
     return [resolver(name) for name in spec_agent.tools]
 
 
 def _context(name: str, contributions: list, denied: int):
-    """The agent's SecurityContext: the join of every contribution so far
-    (meet of levels), built the project way from labeled fields, seeded with
-    how many of this agent's calls the monitor has already denied this run
-    (so quarantine persists across its turns)."""
     fields = {f"turn_{i}": tv for i, tv in enumerate(contributions)}
     context = build_security_context(fields, origin=name)
     context.denied_calls = denied
@@ -68,9 +42,6 @@ def _context(name: str, contributions: list, denied: int):
 
 
 def _turn(name: str, agent, state: TeamState) -> dict:
-    """Run one agent behind the PEP; return its reply (text + TaintedValue) and
-    the agent's denied-call count. A hard deny (PermissionError) ends the turn,
-    as a CRM node catches it."""
     print(f"\n-- {name} --")
     context = _context(name, state["contributions"], state["denied"].get(name, 0))
     n_in = len(state["messages"])
@@ -108,8 +79,6 @@ def _terminated(state: TeamState) -> bool:
 
 
 def _route(roster, llm, messages, unvisited) -> str:
-    """LLM picks the next speaker (or TERMINATE), preferring an agent that has
-    not acted; falls back so routing is robust and every agent gets a turn."""
     names = [n for n, _ in roster]
     if unvisited:
         allowed = [n for n in names if n in unvisited]
@@ -127,7 +96,7 @@ def _route(roster, llm, messages, unvisited) -> str:
     )
     try:
         reply = str(getattr(llm.invoke(prompt), "content", "") or "")
-    except Exception:  # noqa: BLE001 -- routing must not crash the run
+    except Exception:
         reply = ""
     if terminate_ok and "TERMINATE" in reply.upper():
         return "TERMINATE"
@@ -138,8 +107,6 @@ def _route(roster, llm, messages, unvisited) -> str:
 
 
 def build_team_graph(spec: SystemSpec, llm, resolver: ToolResolver, max_rounds: int = 2, monitor=None):
-    """Compile the team graph; returns (graph, turn budget). `monitor` is the
-    system's reference monitor (engine/monitors.build_team_monitor)."""
     if spec.topology not in TEAM_TOPOLOGIES:
         raise ValueError(f"{spec.topology!r} is not a team topology {TEAM_TOPOLOGIES}")
     names = [a.id for a in spec.agents]
@@ -192,7 +159,7 @@ def build_team_graph(spec: SystemSpec, llm, resolver: ToolResolver, max_rounds: 
                 [SUPERVISOR, END],
             )
 
-    else:  # swarm
+    else:
         def swarm_node(name):
             def handoff(state: TeamState) -> Command:
                 reply = _turn(name, agents[name], state)
@@ -222,8 +189,6 @@ def build_team_graph(spec: SystemSpec, llm, resolver: ToolResolver, max_rounds: 
 
 
 def initial_state(query: str, query_level: Level = Level.USER, names=()) -> dict:
-    """The run's starting state: the user query as the first contribution,
-    labeled with its channel level."""
     query_tv = TaintedValue(value=f"[user] {query}", level=query_level, source="user_query")
     return {
         "messages": [{"role": "user", "content": query}],

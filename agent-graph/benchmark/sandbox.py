@@ -1,15 +1,3 @@
-"""
-Client to the sandbox MCP server (benchmark/sandbox_server.py). The agents run
-synchronously, so this wraps the async MCP session: a background thread runs an
-asyncio loop that owns a persistent `ClientSession` over a stdio subprocess, and
-the sync methods below submit coroutines to it and block.
-
-The reference monitor and the security labels stay here on the client; the
-sandbox only executes and records. `reset()` clears the sandbox before each run,
-`state()` returns its final effects for the goal oracle, and the agents are
-given only the benchmark tools (not the `sandbox_*` control tools).
-"""
-
 import asyncio
 import json
 import os
@@ -71,6 +59,6 @@ class Sandbox:
             await self._cm.__aexit__(None, None, None)
         try:
             self._submit(_shutdown()).result(timeout=30)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         self._loop.call_soon_threadsafe(self._loop.stop)

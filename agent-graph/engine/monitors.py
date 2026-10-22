@@ -1,21 +1,9 @@
-"""
-Reference monitors per system. The CRM uses the default `ReferenceMonitor()`
-(the CRM schema/policies/entities from engine/schema.py). A team system (a
-TAMAS instance, or a CRM-style team suite) gets a `ReferenceMonitor` built from
-the team schema (generic tool-call model) and the generic/team policy set, with
-the system's own agents as entities. Same monitor class, configured by data --
-no second monitor.
-"""
-
 from engine.engine import ReferenceMonitor
 from engine.schema import POLICY_DIR, build_schema, system_entities
 from engine.cedar_util import entity
 
 TEAM_POLICY_DIR = POLICY_DIR / "team"
 
-# Each team policy a monitor may load, as a file. grants + level are the
-# generic policies (shared with the CRM); confidentiality + quarantine are the
-# team counterparts of the CRM's. A config selects a subset (bench.py).
 TEAM_POLICY_FILES = {
     "grants": POLICY_DIR / "grants.cedar",
     "level": POLICY_DIR / "level.cedar",
@@ -31,9 +19,8 @@ def team_policies(selected=ALL_TEAM_POLICIES) -> str:
     )
 
 
-def build_team_monitor(spec, policies=ALL_TEAM_POLICIES) -> ReferenceMonitor:
-    """A monitor for a team system: the generic tool-call schema with the
-    spec's agents, and the selected generic + team policies."""
+def build_team_monitor(spec, policies=ALL_TEAM_POLICIES, whitelist=(), whitelist_all=False) -> ReferenceMonitor:
     schema = build_schema("team.core.cedarschema", "benchmark", context_type="ToolCallContext")
-    entities = [*system_entities(spec), entity("Call", "call")]
+    call = entity("Call", "call", {"tools": sorted(whitelist), "all": bool(whitelist_all)})
+    entities = [*system_entities(spec), call]
     return ReferenceMonitor(schema=schema, policies=team_policies(policies), entities=entities)

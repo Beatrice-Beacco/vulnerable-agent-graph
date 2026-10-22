@@ -1,13 +1,3 @@
-"""
-Run log: one JSON object per line, one file per run (runs/ at the repository
-root, or RUN_DIR). The log is the only input of the verifier (verify.py): the
-scenario, the CRM before and after, every tool call mediated by the monitor
-and every agent output are written here, and the verdict is computed from
-this file alone, by code.
-
-Events: run_start, agent_output, tool_call, node_output, run_end.
-"""
-
 import dataclasses
 import json
 import os
@@ -83,8 +73,6 @@ def context_label(context) -> dict:
 
 
 class AgentOutputLog(AgentMiddleware):
-    """Logs what an agent produced: its structured output and last message."""
-
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
 

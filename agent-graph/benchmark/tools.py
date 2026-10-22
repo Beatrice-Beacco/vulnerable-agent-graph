@@ -1,10 +1,3 @@
-"""
-The benchmark tools the agents call. Each is a LangChain tool whose schema
-comes from the catalog (client-side) and whose body calls the sandbox MCP
-server (benchmark/sandbox.py) to execute it. The monitor mediates the call
-before it reaches the sandbox; only an allowed call runs and records an effect.
-"""
-
 import inspect
 
 from langchain_core.tools import StructuredTool
@@ -13,8 +6,6 @@ from benchmark import catalog
 
 _TYPES = {"str": str, "int": int, "float": float, "bool": bool, "list": list, "dict": dict}
 
-# Agent display names whose module stem is not the plain normalization of the
-# name (some agents are named differently from their tool module).
 _ALIAS = {
     "case_analysis": "tools_analysis_agent",
     "compliance_check": "tools_compliance_agent",
@@ -26,7 +17,6 @@ _ALIAS = {
 
 
 def module_for_agent(agent_name: str) -> str:
-    """'Trade Execution Agent B' -> 'tools_trade_execution_agent'."""
     name = agent_name.strip()
     for suffix in (" A", " B", " C"):
         if name.endswith(suffix):
@@ -36,8 +26,6 @@ def module_for_agent(agent_name: str) -> str:
 
 
 def _build_tool(name: str, sandbox) -> StructuredTool:
-    """A LangChain tool: the catalog's signature (what the LLM sees), a body
-    that runs the call in the sandbox."""
     e = catalog.entry(name)
 
     def wrapper(*args, **kwargs):

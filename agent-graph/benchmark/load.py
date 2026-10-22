@@ -1,12 +1,9 @@
-"""Loads benchmark instances from the project's own case data (benchmark/cases)."""
-
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
 CASES_DIR = Path(__file__).resolve().parent / "cases"
 
-# directory name per attack
 ATTACK_DIR = {
     "byzantine": "Byzantine",
     "colluding": "Colluding",
@@ -20,7 +17,7 @@ ATTACK_DIR = {
 @dataclass(frozen=True)
 class Agent:
     name: str
-    description: str  # system prompt; the compromised agent's carries the delta
+    description: str
 
 
 @dataclass(frozen=True)
@@ -33,9 +30,6 @@ class Instance:
 
 
 def _data_file(attack: str, scenario: str) -> Path:
-    """Resolve the case file. The attack suffix varies across the case dirs
-    (DPI/IPI are upper-cased; `news_contradinting.json` is misspelled upstream),
-    so glob by the scenario prefix -- each dir holds one file per scenario."""
     directory = CASES_DIR / ATTACK_DIR[attack]
     matches = sorted(directory.glob(f"{scenario}_*.json"))
     if not matches:
