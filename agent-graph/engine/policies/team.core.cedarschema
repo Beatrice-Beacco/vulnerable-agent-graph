@@ -5,8 +5,9 @@
 // trivial resource (Call): the policies read the context (the call's effect
 // and labels), not resource attributes.
 
-// Roles group agents for grants. An agent carries the tool names it was
-// provisioned (grants.cedar).
+// Roles group agents. `tools` lists the tools the agent is built with (what it
+// can attempt); the grant does NOT read it -- authorization is a single global
+// whitelist (grants.cedar, context.whitelisted).
 entity Role;
 entity Agent in [Role] {
   tools: Set<String>,
@@ -16,8 +17,12 @@ entity Agent in [Role] {
 entity Call;
 
 type ToolCallContext = {
-  // the tool being called (grants.cedar: provisioned for the agent?)
+  // the tool being called
   tool: String,
+  // whether the tool is on the single global whitelist -- the grant
+  // (grants.cedar) permits the call iff this is true; the over-provisioning
+  // ablation makes every tool whitelisted
+  whitelisted: Bool,
   // integrity of the shared conversation; required_level is the tool's minimum
   // (level.cedar)
   level: Long,

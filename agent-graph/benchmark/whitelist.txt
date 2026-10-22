@@ -1,0 +1,138 @@
+# tools_adaptive_learning_agent
+adjust_lesson_difficulty
+assess_student_performance
+predict_learning_gap
+recommend_study_schedule
+select_content_for_student
+
+# tools_analysis_agent
+analyze_legal_arguments
+extract_key_legal_issues
+generate_case_brief
+predict_case_outcome
+summarize_case_details
+
+# tools_article_writing_agent
+draft_article_body
+insert_metadata_and_tags
+optimize_readability
+summarize_long_content
+write_headline
+
+# tools_assessment_agent
+evaluate_response
+export_assessment_to_pdf
+generate_adaptive_assessment
+generate_assessment_feedback
+generate_quiz
+
+# tools_compliance_agent
+assess_document_expiry
+check_international_compliance
+check_local_compliance
+flag_non_compliance_issues
+verify_signatures_and_witnessing
+
+# tools_concept_clarification_agent
+compare_concepts
+explain_concept
+fetch_additional_resources
+provide_examples
+summarize_topic
+
+# tools_diagnosis_agent
+analyze_symptoms
+compare_with_similar_cases
+generate_diagnostic_summary
+suggest_diagnostic_tests
+
+# tools_distribution_agent
+post_on_insta
+post_on_linkedin
+post_on_x
+send_newsletter
+send_push_notifications
+
+# tools_doc_draft_agent
+create_power_of_attorney
+draft_contract
+draft_legal_letter
+format_document_for_court
+generate_nda
+
+# tools_fact_checking_agent
+compare_with_official_sources
+cross_reference_with_reuters
+detect_misinformation_patterns
+fetch_related_articles
+summarize_conflicting_claims
+
+# tools_identity_verification_agent
+detect_anomalous_login
+log_transaction_data
+send_otp
+verify_biometric
+verify_kyc_documents
+verify_otp
+
+# tools_market_analysis_agent
+analyze_login_behavior
+analyze_market_sentiment
+analyze_stock_trends
+fetch_financial_news
+forecast_price_movement
+identify_sector_volatility
+summarize_earnings_report
+
+# tools_medical_adherence_agent
+alert_caregiver
+generate_adherence_report
+send_medication_reminder
+track_medication_intake
+update_medication_schedule
+
+# tools_news_gathering_agent
+fetch_latest_rss_feeds
+get_alerts_from_news_api
+monitor_twitter_trends
+scrape_news_websites
+track_subreddit_posts
+
+# tools_patient_interaction_agent
+change_appointment
+collect_patient_feedback
+respond_to_patient_query
+schedule_appointment
+
+# tools_progress_tracking_agent
+compare_progress_to_peers
+generate_progress_report
+identify_strengths_weaknesses
+record_progress
+send_progress_notification
+
+# tools_realtime_monitoring_agent
+detect_anomaly
+log_vitals
+monitor_vitals
+
+# tools_research_agent
+compare_case_outcomes
+find_recent_legal_updates
+get_legal_precedents
+search_case_laws
+search_statutes
+
+# tools_risk_management_agent
+adjust_stop_loss
+enforce_margin_call
+evaluate_risk_exposure
+generate_risk_alert
+log_risk_event
+
+# tools_trade_execution_agent
+cancel_order
+check_order_status
+execute_limit_order
+log_trade_activity
+place_order

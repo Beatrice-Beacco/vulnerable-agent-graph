@@ -1,13 +1,15 @@
-// Grants (least privilege): an agent may call a tool only if its system spec
-// provisioned that tool for it. The agent carries its provisioned tools
-// (engine/schema.system_entities -> the Agent entity's `tools`); the call
-// carries the tool name (context.tool). One data-driven permit replaces the
-// per-agent permits, so a new system's grants are data, not policy.
+// Grants (least privilege) as a single global whitelist: an agent may call a
+// tool only if that tool is on the whitelist. The whitelist is one global list
+// (benchmark/catalog.WHITELIST), the same for every agent, surfaced per call as
+// context.whitelisted (benchmark/manifest.py). A tool not on the whitelist is
+// denied for every agent. The over-provisioning ablation sets every tool
+// whitelisted (WHITELIST_ALL=1), so the grant permits all and only the lattice
+// defends.
 
-@id("provisioned-tools")
+@id("whitelisted-tool")
 permit (
   principal,
   action in Action::"tool_call",
   resource
 )
-when { principal.tools.contains(context.tool) };
+when { context.whitelisted };

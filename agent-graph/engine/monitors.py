@@ -7,8 +7,6 @@ the system's own agents as entities. Same monitor class, configured by data --
 no second monitor.
 """
 
-from dataclasses import replace
-
 from engine.engine import ReferenceMonitor
 from engine.schema import POLICY_DIR, build_schema, system_entities
 from engine.cedar_util import entity
@@ -39,11 +37,3 @@ def build_team_monitor(spec, policies=ALL_TEAM_POLICIES) -> ReferenceMonitor:
     schema = build_schema("team.core.cedarschema", "benchmark", context_type="ToolCallContext")
     entities = [*system_entities(spec), entity("Call", "call")]
     return ReferenceMonitor(schema=schema, policies=team_policies(policies), entities=entities)
-
-
-def overprovision(spec):
-    """A copy of the spec where every agent is granted the tools it was only
-    built with (its attacker tools): the over-provisioning ablation, where the
-    grant no longer denies attack tools and only the lattice defends."""
-    agents = tuple(replace(a, tools=a.built_tools(), ungranted_tools=()) for a in spec.agents)
-    return replace(spec, agents=agents)

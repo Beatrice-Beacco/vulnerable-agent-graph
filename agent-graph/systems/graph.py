@@ -51,9 +51,9 @@ class TeamState(TypedDict):
 
 
 def _agent_tools(spec_agent, resolver: ToolResolver) -> list:
-    # The LLM is given every tool the agent is built with (provisioned +
-    # ungranted/attacker); the monitor's grant denies the ungranted ones.
-    return [resolver(name) for name in spec_agent.built_tools()]
+    # The LLM is given every tool the agent is built with; the monitor's grant
+    # (a single global whitelist) denies any that are not whitelisted.
+    return [resolver(name) for name in spec_agent.tools]
 
 
 def _context(name: str, contributions: list, denied: int):

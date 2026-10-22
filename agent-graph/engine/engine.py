@@ -66,7 +66,7 @@ class ReferenceMonitor:
             return AuthorizationDecision(False, agent, tool, str(exc))
 
         cedar_context = {
-            "tool": tool,  # grants.cedar: is the tool provisioned for the agent?
+            "tool": tool,  # informational; the grant gates on context.whitelisted
             "level": int(context.label.level),
             "conf": int(context.label.confidentiality),
             "provenance": sorted(context.label.provenance),
@@ -86,9 +86,11 @@ class ReferenceMonitor:
         self, agent: str, name: str, requests: list, cedar_context: dict
     ) -> AuthorizationDecision:
         """All the Cedar requests of one decision must be allowed."""
-        # Fail closed for a principal the system never declared: the grant
-        # reads its attributes (principal.tools), which a missing entity cannot
-        # resolve. In a graph built from the spec this cannot happen.
+        # Fail closed for a principal the system never declared. The grant is a
+        # global whitelist on the tool (context.whitelisted), not a principal
+        # attribute, so Cedar would otherwise permit an unknown agent any
+        # whitelisted tool; this guard is what denies it. In a graph built from
+        # the spec this cannot happen.
         if agent not in self._agent_ids:
             return AuthorizationDecision(False, agent, name, f"unknown principal {agent!r}")
         permitted, permit_ids = [], []

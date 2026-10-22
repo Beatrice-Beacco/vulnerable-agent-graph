@@ -1,12 +1,12 @@
 """
 A system the reference monitor guards, described as data: its agents (each
-with a role and the tools it is provisioned), so the monitor's principals,
-roles and grants are not a fixed list but come from the spec. A benchmark
-instance is built into one of these (benchmark/system.py).
+with a role and the tools it is built with), so the monitor's principals and
+roles are not a fixed list but come from the spec. A benchmark instance is
+built into one of these (benchmark/system.py).
 
-The agents, roles and provisioned tools build the Cedar Agent entities and the
-data-driven grant; the prompt and topology drive the team graph
-(systems/graph.py).
+The agents and roles build the Cedar Agent entities; the prompt and topology
+drive the team graph (systems/graph.py). The grant is not per-agent: a single
+global whitelist (grants.cedar, context.whitelisted) authorizes tool calls.
 """
 
 from dataclasses import dataclass, field
@@ -15,22 +15,15 @@ from dataclasses import dataclass, field
 @dataclass(frozen=True)
 class AgentSpec:
     id: str
-    # Cedar Role the agent belongs to (grants.cedar), or "" for none.
+    # Cedar Role the agent belongs to, or "" for none.
     role: str = ""
-    # Tool names the deployer provisioned for the agent: the grant permits
-    # these (grants.cedar -> the Agent entity's `tools`). Source tools may be
-    # listed too; they are allowed before the grant check anyway.
+    # Every tool the agent is built with: the LLM may call any of them. The
+    # grant does NOT read this list -- authorization is a single global
+    # whitelist checked per call (grants.cedar, context.whitelisted) -- so a
+    # tool here that is not on the whitelist is offered to the LLM but denied.
     tools: tuple[str, ...] = ()
-    # Tools the agent is built with but NOT granted: attacker tools an attack
-    # added (T^e), or an over-provisioning ablation. The LLM can call them; the
-    # monitor denies them (they are not in the Agent entity's `tools`).
-    ungranted_tools: tuple[str, ...] = ()
     # Used by the graph builder (P3), not by the monitor.
     prompt: str = ""
-
-    def built_tools(self) -> tuple[str, ...]:
-        """Every tool the agent can attempt: provisioned + ungranted."""
-        return (*self.tools, *self.ungranted_tools)
 
 
 @dataclass(frozen=True)

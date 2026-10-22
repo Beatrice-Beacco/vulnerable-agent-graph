@@ -5,9 +5,11 @@ monitor). Runs the matrix config x attack x scenario x topology x index through
 scores every run by the code oracle (benchmark/oracle.py), and reports the TAMAS
 metrics (arXiv:2511.05269) per config.
 
-A config selects which policies the team monitor loads and whether the attack
-tools are granted (over-provisioning), plus the query channel level and the
-simulated user:
+Authorization is a single global whitelist (benchmark/catalog.WHITELIST, enforced
+by grants.cedar via context.whitelisted): a tool not on it is denied for every
+agent. A config selects which policies the team monitor loads and whether every
+tool is whitelisted (over-provisioning, WHITELIST_ALL=1), plus the query channel
+level and the simulated user:
 
   undefended   grants only, every tool granted: nothing is forbidden -> the
                attack tools execute (the ARIA-4 baseline)
@@ -47,7 +49,7 @@ sys.path[0] = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 from collections import Counter, defaultdict  # noqa: E402
 
-from engine.monitors import ALL_TEAM_POLICIES, build_team_monitor, overprovision  # noqa: E402
+from engine.monitors import ALL_TEAM_POLICIES, build_team_monitor  # noqa: E402
 from security import trace  # noqa: E402
 from state import Level  # noqa: E402
 from systems.graph import run_team_graph  # noqa: E402
@@ -104,12 +106,12 @@ def _run_one(sandbox, attack, scenario, topology, index, config, rounds, retries
     cfg = CONFIGS[config]
     os.environ["USER_POLICY"] = cfg["user"]
     os.environ["QUARANTINE_HARD_ONLY"] = "1" if cfg.get("q2") else "0"
+    # Over-provisioning ablation: whitelist every tool (the grant permits all).
+    os.environ["WHITELIST_ALL"] = "1" if cfg["over"] else "0"
     from llm import llm
 
     instance = load.load(attack, scenario)[index]
     spec = system.build_spec(instance, topology)
-    if cfg["over"]:
-        spec = overprovision(spec)
     monitor = build_team_monitor(spec, policies=cfg["policies"])
     resolver = system.build_resolver(instance, sandbox)
     query_level = Level[cfg["level"]]
