@@ -1,5 +1,6 @@
 import operator
 import os
+import re
 from typing import Annotated, Callable, TypedDict, cast
 
 from langchain.messages import AIMessage
@@ -8,6 +9,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from systems.agent import build_monitored_agent
+from security import dataflow
+from security.labels import Label
 from security.security_context import build_security_context
 from security.trace import event
 from state import Level, TaintedValue
@@ -19,6 +22,20 @@ SUPERVISOR = "supervisor"
 TEAM_TOPOLOGIES = ("round_robin", "supervisor", "swarm")
 
 ToolResolver = Callable[[str], object]
+
+_THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_SUPPRESS_THINKING = (
+    os.getenv("LLM_BACKEND", "openai").strip().lower() == "ollama"
+    and os.getenv("ENABLE_THINKING", "0") != "1"
+)
+
+
+def _strip_think(text: str) -> str:
+    return _THINK.sub("", text or "").strip()
+
+
+def _prompt(prompt: str) -> str:
+    return f"{prompt}\n\n/no_think" if _SUPPRESS_THINKING else prompt
 
 
 class TeamState(TypedDict):
@@ -52,7 +69,8 @@ def _turn(name: str, agent, state: TeamState) -> dict:
             config={"recursion_limit": RECURSION_LIMIT},
         )
         new = result["messages"][n_in:]
-        text = next((m.text for m in reversed(new) if isinstance(m, AIMessage) and m.text), "")
+        texts = [_strip_think(m.text) for m in new if isinstance(m, AIMessage) and m.text]
+        text = next((t for t in reversed(texts) if t), "")
     except PermissionError as exc:
         event("turn_stopped", agent=name, reason=str(exc))
         text = "(stopped by the security monitor)"
@@ -60,6 +78,8 @@ def _turn(name: str, agent, state: TeamState) -> dict:
         event("turn_stopped", agent=name, reason="recursion limit")
         text = "(turn cut off: step limit)"
     labeled = context.labeled(f"[{name}] {text}", source=name)
+    if dataflow.enabled():
+        dataflow.record(labeled.value, dataflow.label_for(text))
     return {"role": "user", "content": labeled.value, "tainted": labeled,
             "denied": context.denied_calls}
 
@@ -113,7 +133,7 @@ def build_team_graph(spec: SystemSpec, llm, resolver: ToolResolver, max_rounds: 
     if len(set(names)) != len(names) or SUPERVISOR in names:
         raise ValueError(f"agent ids must be unique and not {SUPERVISOR!r}: {names}")
     agents = {
-        a.id: build_monitored_agent(llm, a.id, a.prompt, _agent_tools(a, resolver), monitor=monitor)
+        a.id: build_monitored_agent(llm, a.id, _prompt(a.prompt), _agent_tools(a, resolver), monitor=monitor)
         for a in spec.agents
     }
     roster = [(a.id, a.prompt) for a in spec.agents]
@@ -205,6 +225,9 @@ def run_team_graph(
     query_level: Level = Level.USER, max_rounds: int = 2, monitor=None,
 ) -> list:
     graph, budget = build_team_graph(spec, llm, resolver, max_rounds, monitor=monitor)
+    if dataflow.enabled():
+        dataflow.reset()
+        dataflow.record(query, Label(query_level))
     state = initial_state(query, query_level, [a.id for a in spec.agents])
     final = graph.invoke(state, config={"recursion_limit": 2 * budget + 5})
     return final["messages"]

@@ -1,10 +1,25 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from security.labels import Label
-from state import TaintedValue
+from state import Level, TaintedValue, meet_level
+
+_TOKEN = re.compile(r"[a-z0-9]{6,}|\d{4,}")
+
+
+def _tokens(text: str) -> set:
+    return set(_TOKEN.findall(text.lower()))
+
+
+def _arg_text(obj: Any) -> str:
+    if isinstance(obj, dict):
+        return " ".join(_arg_text(value) for value in obj.values())
+    if isinstance(obj, (list, tuple)):
+        return " ".join(_arg_text(value) for value in obj)
+    return str(obj)
 
 
 @dataclass
@@ -13,6 +28,7 @@ class SecurityContext:
     label: Label = field(default_factory=Label.top)
     origin: str = "unknown"
     denied_calls: int = 0
+    reads: List[TaintedValue] = field(default_factory=list)
 
     @property
     def level(self):
@@ -34,6 +50,26 @@ class SecurityContext:
     def absorb(self, label: Label) -> None:
         self.label = self.label.join(label)
 
+    def record_read(self, value: Any, label: Label) -> None:
+        self.reads.append(TaintedValue(
+            value=str(value),
+            level=label.level,
+            source="read",
+            provenance=sorted(label.provenance),
+            confidentiality=label.confidentiality,
+        ))
+
+    def flow_level(self, args: Any) -> Level:
+        arg_tokens = _tokens(_arg_text(args))
+        if not arg_tokens:
+            return Level.SYSTEM
+        levels = [
+            tainted.level
+            for tainted in (*self.fields.values(), *self.reads)
+            if _tokens(str(tainted.value)) & arg_tokens
+        ]
+        return meet_level(*levels)
+
     def raised_to(self, level) -> "SecurityContext":
         from dataclasses import replace
 
@@ -42,6 +78,7 @@ class SecurityContext:
             label=replace(self.label, level=max(self.label.level, level)),
             origin=self.origin,
             denied_calls=self.denied_calls,
+            reads=self.reads,
         )
 
     def labeled(self, value: Any, source: str) -> TaintedValue:

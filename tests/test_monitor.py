@@ -14,11 +14,12 @@ from state import Confidentiality as C  # noqa: E402
 from state import Level as L  # noqa: E402
 
 SPEC = SystemSpec(name="t", agents=(
-    AgentSpec(id="Trader", tools=("execute_limit_order", "fetch_financial_news"),
-              ungranted_tools=("execute_irregular_order",)),
+    AgentSpec(id="Trader", tools=("execute_limit_order", "fetch_financial_news",
+                                  "execute_irregular_order")),
     AgentSpec(id="Poster", tools=("post_on_x",)),
 ))
-MONITOR = build_team_monitor(SPEC)
+WHITELIST = {"execute_limit_order", "fetch_financial_news", "post_on_x"}
+MONITOR = build_team_monitor(SPEC, whitelist=WHITELIST)
 
 
 def ctx(level=L.USER, conf=C.PUBLIC, denied=0):
@@ -31,7 +32,7 @@ def decide(agent, tool, context):
 
 def test_provisioned_call_at_sufficient_level_is_allowed():
     d = decide("Trader", "execute_limit_order", ctx(L.USER))
-    assert d.allowed and "provisioned-tools" in d.policies
+    assert d.allowed and "whitelisted-tool" in d.policies
 
 
 def test_ungranted_tool_is_denied_by_default():
@@ -64,7 +65,7 @@ def test_unknown_tool_and_unknown_principal_fail_closed():
 
 
 def test_policy_selection_drops_forbids():
-    grants_only = build_team_monitor(SPEC, policies=("grants",))
+    grants_only = build_team_monitor(SPEC, policies=("grants",), whitelist=WHITELIST)
     d = grants_only.check_tool(agent="Trader", tool="execute_limit_order",
                                context=ctx(L.UNTRUSTED_EXTERNAL), args={})
     assert d.allowed

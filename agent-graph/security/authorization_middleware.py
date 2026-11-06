@@ -3,12 +3,26 @@ import os
 from engine.tool_contract import output_label, required_level
 from langchain.agents.middleware import AgentMiddleware
 from langchain.messages import ToolMessage
-from security import escalation, feedback, trace
+from security import dataflow, escalation, feedback, trace
 from security.security_context import SecurityContext, build_security_context
 
 
 def _quarantine_hard_only() -> bool:
     return os.getenv("QUARANTINE_HARD_ONLY", "0").strip() == "1"
+
+
+def _argument_level() -> bool:
+    return os.getenv("ARGUMENT_LEVEL", "0").strip() == "1"
+
+
+def _retain_read(context, label, result) -> None:
+    if not label.provenance:
+        return
+    content = getattr(result, "content", result)
+    if _argument_level():
+        context.record_read(content, label)
+    if dataflow.enabled():
+        dataflow.record(content, label)
 
 
 class CedarAuthorizationMiddleware(AgentMiddleware):
@@ -62,7 +76,9 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
                 self.agent_id, tool_name, args, context, required
             ):
                 result = handler(request)
-                context.absorb(output_label(tool_name, args))
+                out = output_label(tool_name, args)
+                context.absorb(out)
+                _retain_read(context, out, result)
                 trace.event(
                     "tool_call",
                     **{**call, "allowed": True, "policies": recheck.policies,
@@ -92,7 +108,9 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
 
         result = handler(request)
 
-        context.absorb(output_label(tool_name, args))
+        out = output_label(tool_name, args)
+        context.absorb(out)
+        _retain_read(context, out, result)
 
         trace.event(
             "tool_call", **call, executed=True, output=getattr(result, "content", result)

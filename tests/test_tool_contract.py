@@ -61,11 +61,11 @@ def test_schema_has_one_action_per_tool_in_the_tool_call_group():
         assert f'action "{name}" in ["tool_call"] appliesTo' in schema
 
 
-def test_entities_carry_only_provisioned_tools():
+def test_entities_carry_the_built_tools():
     spec = SystemSpec(name="t", agents=(
-        AgentSpec(id="A", role="R", tools=("x",), ungranted_tools=("evil",)),))
+        AgentSpec(id="A", role="R", tools=("x", "evil")),))
     entities = system_entities(spec)
     agent = next(e for e in entities if e["uid"]["type"] == "Agent")
-    assert agent["attrs"]["tools"] == ["x"]
+    assert agent["attrs"]["tools"] == ["x", "evil"]
     assert agent["parents"] == [{"type": "Role", "id": "R"}]
     json.dumps(entities)  # cedarpy needs plain JSON

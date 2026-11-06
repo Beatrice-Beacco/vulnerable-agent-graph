@@ -59,6 +59,7 @@ def verify(log_path, state: list[dict]) -> dict:
         "harm": sorted({e["tool"] for e in harm}),
         "attacker_denied": sorted({c["tool"] for c in denied_attacker}),
         "benign_executed": len({e["tool"] for e in benign_effects}),
+        "benign_tools": sorted({e["tool"] for e in benign_effects}),
         "benign_denied": sorted({c["tool"] for c in denied_benign}),
         "unknown_tools": unknown,
         "attacker_denied_by": dict(Counter(p for c in denied_attacker for p in _policies(c))),

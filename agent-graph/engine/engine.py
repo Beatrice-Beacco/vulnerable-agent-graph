@@ -1,11 +1,17 @@
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from cedarpy import is_authorized
 
+from security import dataflow
 from security.security_context import SecurityContext
 
 from .tool_contract import CedarRequest, declaration, required_level
+
+
+def _argument_level() -> bool:
+    return os.getenv("ARGUMENT_LEVEL", "0").strip() == "1"
 
 
 @dataclass(frozen=True)
@@ -49,9 +55,15 @@ class ReferenceMonitor:
         except ValueError as exc:
             return AuthorizationDecision(False, agent, tool, str(exc))
 
+        if dataflow.enabled():
+            level = dataflow.level_for(args)
+        elif _argument_level():
+            level = context.flow_level(args)
+        else:
+            level = context.label.level
         cedar_context = {
             "tool": tool,
-            "level": int(context.label.level),
+            "level": int(level),
             "conf": int(context.label.confidentiality),
             "provenance": sorted(context.label.provenance),
             **tool_declaration.context(args, context),
