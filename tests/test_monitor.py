@@ -22,8 +22,13 @@ WHITELIST = {"execute_limit_order", "fetch_financial_news", "post_on_x"}
 MONITOR = build_team_monitor(SPEC, whitelist=WHITELIST)
 
 
-def ctx(level=L.USER, conf=C.PUBLIC, denied=0):
-    return SecurityContext(label=Label(level, conf), denied_calls=denied)
+def ctx(level=L.USER, conf=C.PUBLIC, denied_tools=()):
+    return SecurityContext(label=Label(level, conf), denied_tools=set(denied_tools))
+
+
+@pytest.fixture(autouse=True)
+def _coarse(monkeypatch):
+    monkeypatch.setenv("LEVEL_GATE", "coarse")
 
 
 def decide(agent, tool, context):
@@ -55,8 +60,13 @@ def test_egress_of_confidential_context_to_public_sink_is_write_down():
 
 
 def test_quarantined_agent_is_denied():
-    d = decide("Trader", "execute_limit_order", ctx(L.USER, denied=1))
+    d = decide("Trader", "execute_limit_order", ctx(L.USER, denied_tools=("execute_limit_order",)))
     assert not d.allowed and "team-quarantine-denied-agent" in d.policies
+
+
+def test_quarantine_is_per_tool_not_whole_agent():
+    c = ctx(L.USER, denied_tools=("execute_irregular_order",))
+    assert decide("Trader", "execute_limit_order", c).allowed
 
 
 def test_unknown_tool_and_unknown_principal_fail_closed():

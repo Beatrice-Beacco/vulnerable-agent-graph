@@ -4,4 +4,4 @@ forbid (
   action in Action::"tool_call",
   resource
 )
-when { context.agent_denied > 0 };
+when { context.denied_tools.contains(context.tool) };

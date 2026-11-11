@@ -11,15 +11,11 @@ def _quarantine_hard_only() -> bool:
     return os.getenv("QUARANTINE_HARD_ONLY", "0").strip() == "1"
 
 
-def _argument_level() -> bool:
-    return os.getenv("ARGUMENT_LEVEL", "0").strip() == "1"
-
-
 def _retain_read(context, label, result) -> None:
     if not label.provenance:
         return
     content = getattr(result, "content", result)
-    if _argument_level():
+    if dataflow.argument_mode():
         context.record_read(content, label)
     if dataflow.enabled():
         dataflow.record(content, label)
@@ -102,7 +98,7 @@ class CedarAuthorizationMiddleware(AgentMiddleware):
                 )
 
             if not (escalatable and _quarantine_hard_only()):
-                context.denied_calls += 1
+                context.denied_tools.add(tool_name)
             trace.event("tool_call", **call, executed=False, escalatable=escalatable)
             raise PermissionError(str(decision))
 

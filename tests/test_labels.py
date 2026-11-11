@@ -43,9 +43,9 @@ def test_context_is_meet_of_fields_and_absorb_lowers_it():
 
 
 def test_raised_to_is_a_copy():
-    ctx = SecurityContext(label=Label(L.UNTRUSTED_EXTERNAL, C.PUBLIC), denied_calls=2)
+    ctx = SecurityContext(label=Label(L.UNTRUSTED_EXTERNAL, C.PUBLIC), denied_tools={"t"})
     raised = ctx.raised_to(L.USER)
-    assert raised.level == L.USER and raised.denied_calls == 2
+    assert raised.level == L.USER and raised.denied_tools == {"t"}
     assert ctx.level == L.UNTRUSTED_EXTERNAL  # the original is unchanged
 
 

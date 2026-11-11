@@ -4,11 +4,25 @@ from state import Confidentiality, Level
 from benchmark.catalog import CATALOG
 
 
+def _required_level(effect: str, data_conf: Confidentiality, sink: Confidentiality) -> Level:
+    if effect == "read":
+        return Level.UNTRUSTED_EXTERNAL
+    if effect == "critical":
+        return Level.USER
+    if effect == "write":
+        return Level.EXTERNAL_KNOWN if data_conf == Confidentiality.PUBLIC else Level.INTERNAL
+    if effect == "egress":
+        if sink == Confidentiality.PUBLIC and data_conf == Confidentiality.PUBLIC:
+            return Level.EXTERNAL_KNOWN
+        return Level.INTERNAL
+    return Level.INTERNAL
+
+
 def _declaration(name: str, entry: dict) -> ToolDeclaration:
     effect = entry["effect"]
-    required = Level[entry["required_level"]]
     data_conf = Confidentiality[entry["data_conf"]]
     sink = Confidentiality[entry["sink_clearance"]] if entry["sink_clearance"] else Confidentiality.PUBLIC
+    required = _required_level(effect, data_conf, sink)
     out = Level[entry["output_level"]] if entry["output_level"] else Level.SYSTEM
 
     def context(args, ctx, _effect=effect, _dc=data_conf, _sink=sink):
@@ -16,7 +30,7 @@ def _declaration(name: str, entry: dict) -> ToolDeclaration:
             "effect": _effect,
             "data_conf": int(_dc),
             "sink_clearance": int(_sink),
-            "agent_denied": int(getattr(ctx, "denied_calls", 0)),
+            "denied_tools": sorted(getattr(ctx, "denied_tools", set())),
         }
 
     def output_label(args, _effect=effect, _out=out, _dc=data_conf, _name=name):

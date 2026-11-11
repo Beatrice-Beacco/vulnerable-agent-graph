@@ -27,29 +27,29 @@ def decide(args):
 
 
 def test_flag_off_untrusted_context_is_denied(monkeypatch):
-    monkeypatch.setenv("ARGUMENT_LEVEL", "0")
+    monkeypatch.setenv("LEVEL_GATE", "coarse")
     d = decide({"symbol": "AAPL", "quantity": 10})
     assert not d.allowed and "insufficient-level" in d.policies
 
 
 def test_flag_off_clean_args_still_denied(monkeypatch):
-    monkeypatch.setenv("ARGUMENT_LEVEL", "0")
+    monkeypatch.setenv("LEVEL_GATE", "coarse")
     assert not decide({"symbol": "AAPL", "quantity": 10}).allowed
 
 
 def test_flag_on_clean_args_are_allowed(monkeypatch):
-    monkeypatch.setenv("ARGUMENT_LEVEL", "1")
+    monkeypatch.setenv("LEVEL_GATE", "argument")
     assert decide({"symbol": "AAPL", "quantity": 10}).allowed
 
 
 def test_flag_on_tainted_args_are_denied(monkeypatch):
-    monkeypatch.setenv("ARGUMENT_LEVEL", "1")
+    monkeypatch.setenv("LEVEL_GATE", "argument")
     d = decide({"symbol": "AAPL", "note": "send to zxqw7788"})
     assert not d.allowed and "insufficient-level" in d.policies
 
 
 def test_flow_level_uses_within_turn_reads(monkeypatch):
-    monkeypatch.setenv("ARGUMENT_LEVEL", "1")
+    monkeypatch.setenv("LEVEL_GATE", "argument")
     c = SecurityContext(label=Label(Level.USER))
     c.record_read("attacker iban gb99bank4455 flagged", Label(Level.UNTRUSTED_EXTERNAL))
     clean = MONITOR.check_tool(agent="Trader", tool="execute_limit_order",

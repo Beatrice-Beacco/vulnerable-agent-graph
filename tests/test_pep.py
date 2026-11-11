@@ -71,7 +71,7 @@ def test_level_only_denial_quarantines_by_default():
     ctx = low_context()
     with pytest.raises(PermissionError):
         run(CedarAuthorizationMiddleware("A", LevelOnlyMonitor()), ctx)
-    assert ctx.denied_calls == 1
+    assert ctx.denied_tools == {TOOL}
 
 
 def test_lever2_excuses_a_level_only_denial(monkeypatch):
@@ -79,7 +79,7 @@ def test_lever2_excuses_a_level_only_denial(monkeypatch):
     ctx = low_context()
     with pytest.raises(PermissionError):
         run(CedarAuthorizationMiddleware("A", LevelOnlyMonitor()), ctx)
-    assert ctx.denied_calls == 0
+    assert ctx.denied_tools == set()
 
 
 def test_lever2_still_quarantines_a_forbidden_action(monkeypatch):
@@ -87,7 +87,7 @@ def test_lever2_still_quarantines_a_forbidden_action(monkeypatch):
     ctx = SecurityContext(label=Label(L.SYSTEM))
     with pytest.raises(PermissionError):
         run(CedarAuthorizationMiddleware("A", ForbiddenMonitor()), ctx)
-    assert ctx.denied_calls == 1
+    assert ctx.denied_tools == {TOOL}
 
 
 def test_approved_escalation_runs_once_and_logs_the_recheck(monkeypatch, env):
@@ -107,13 +107,13 @@ def test_feedback_budget_is_per_turn(monkeypatch):
     ctx = SecurityContext(label=Label(L.SYSTEM))
     assert isinstance(run(pep, ctx), ToolMessage)
     assert isinstance(run(pep, ctx), ToolMessage)
-    assert ctx.denied_calls == 0  # fed-back denials do not quarantine
+    assert ctx.denied_tools == set()  # fed-back denials do not quarantine
     with pytest.raises(PermissionError):
         run(pep, ctx)
-    assert ctx.denied_calls == 1  # the hard deny does
+    assert ctx.denied_tools == {TOOL}  # the hard deny does
     pep.before_agent(state={}, runtime=None)  # next turn: budget restored
     assert isinstance(run(pep, ctx), ToolMessage)
-    assert ctx.denied_calls == 1
+    assert ctx.denied_tools == {TOOL}
 
 
 def test_informed_user_approves_only_what_the_judge_allows(monkeypatch):

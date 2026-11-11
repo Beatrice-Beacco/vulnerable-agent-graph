@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -8,10 +7,6 @@ from security import dataflow
 from security.security_context import SecurityContext
 
 from .tool_contract import CedarRequest, declaration, required_level
-
-
-def _argument_level() -> bool:
-    return os.getenv("ARGUMENT_LEVEL", "0").strip() == "1"
 
 
 @dataclass(frozen=True)
@@ -57,7 +52,7 @@ class ReferenceMonitor:
 
         if dataflow.enabled():
             level = dataflow.level_for(args)
-        elif _argument_level():
+        elif dataflow.argument_mode():
             level = context.flow_level(args)
         else:
             level = context.label.level

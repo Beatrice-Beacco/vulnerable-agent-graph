@@ -24,14 +24,14 @@ def decide(args, level=Level.USER):
 
 
 def test_clean_action_allowed(monkeypatch):
-    monkeypatch.setenv("DATAFLOW_LEVEL", "1")
+    monkeypatch.setenv("LEVEL_GATE", "dataflow")
     dataflow.reset()
     dataflow.record("please trade AAPL per my plan", Label(Level.USER))
     assert decide({"symbol": "AAPL", "qty": 5}).allowed
 
 
 def test_action_carrying_untrusted_datum_denied(monkeypatch):
-    monkeypatch.setenv("DATAFLOW_LEVEL", "1")
+    monkeypatch.setenv("LEVEL_GATE", "dataflow")
     dataflow.reset()
     dataflow.record(EMAIL, Label(Level.UNTRUSTED_EXTERNAL))
     assert not decide({"iban": IBAN}).allowed
@@ -39,7 +39,7 @@ def test_action_carrying_untrusted_datum_denied(monkeypatch):
 
 
 def test_reply_label_propagates(monkeypatch):
-    monkeypatch.setenv("DATAFLOW_LEVEL", "1")
+    monkeypatch.setenv("LEVEL_GATE", "dataflow")
     dataflow.reset()
     dataflow.record(EMAIL, Label(Level.UNTRUSTED_EXTERNAL))
     assert dataflow.label_for("markets rose two percent today").level == Level.SYSTEM
@@ -47,14 +47,12 @@ def test_reply_label_propagates(monkeypatch):
 
 
 def test_tracks_read_from_earlier_turn(monkeypatch):
-    monkeypatch.setenv("DATAFLOW_LEVEL", "1")
-    monkeypatch.setenv("ARGUMENT_LEVEL", "0")
+    monkeypatch.setenv("LEVEL_GATE", "dataflow")
     dataflow.reset()
     dataflow.record(EMAIL, Label(Level.UNTRUSTED_EXTERNAL))
     assert not decide({"iban": IBAN}).allowed
 
 
 def test_per_call_heuristic_misses_earlier_turn(monkeypatch):
-    monkeypatch.setenv("DATAFLOW_LEVEL", "0")
-    monkeypatch.setenv("ARGUMENT_LEVEL", "1")
+    monkeypatch.setenv("LEVEL_GATE", "argument")
     assert decide({"iban": IBAN}).allowed

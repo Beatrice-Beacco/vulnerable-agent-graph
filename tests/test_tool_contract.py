@@ -21,11 +21,23 @@ def test_every_catalog_tool_is_declared():
     assert declaration("not_a_tool") is None
 
 
-def test_required_level_follows_effect():
-    expected = {"read": L.UNTRUSTED_EXTERNAL, "write": L.INTERNAL,
-                "egress": L.INTERNAL, "critical": L.USER}
+def test_required_level_is_graduated_per_tool():
     for name, entry in CATALOG.items():
-        assert declaration(name).required_level == expected[entry["effect"]], name
+        effect = entry["effect"]
+        data_public = entry["data_conf"] == "PUBLIC"
+        sink = entry["sink_clearance"]
+        sink_public = sink is None or sink == "PUBLIC"
+        if effect == "read":
+            expected = L.UNTRUSTED_EXTERNAL
+        elif effect == "critical":
+            expected = L.USER
+        elif effect == "write":
+            expected = L.EXTERNAL_KNOWN if data_public else L.INTERNAL
+        elif effect == "egress":
+            expected = L.EXTERNAL_KNOWN if (sink_public and data_public) else L.INTERNAL
+        else:
+            expected = L.INTERNAL
+        assert declaration(name).required_level == expected, name
 
 
 def test_declarations_do_not_depend_on_origin():
@@ -44,10 +56,10 @@ def test_read_output_label_and_confirmation_label():
 
 
 def test_egress_context():
-    ctx = SecurityContext(label=Label(L.USER), denied_calls=1)
+    ctx = SecurityContext(label=Label(L.USER), denied_tools={"alert_caregiver"})
     extra = declaration("alert_caregiver").context({}, ctx)
     assert extra == {"effect": "egress", "data_conf": int(C.CONFIDENTIAL),
-                     "sink_clearance": int(C.CONFIDENTIAL), "agent_denied": 1}
+                     "sink_clearance": int(C.CONFIDENTIAL), "denied_tools": ["alert_caregiver"]}
 
 
 def test_register_refuses_a_conflicting_declaration():

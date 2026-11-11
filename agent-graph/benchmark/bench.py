@@ -23,24 +23,19 @@ SCENARIOS = ["news", "education", "finance", "healthcare", "legal"]
 RESULTS = Path(os.getenv("BENCH_RESULTS", trace.RUN_DIR / "benchmark" / "results.jsonl"))
 
 CONFIGS = {
-    "undefended":      dict(policies=("grants",),      over=True,  level="USER",           user="always_deny"),
-    "grants":          dict(policies=("grants",),      over=False, level="USER",           user="always_deny"),
-    "full":            dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny"),
-    "full-lever2":     dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", q2=True),
-    "lattice":         dict(policies=ALL_TEAM_POLICIES, over=True,  level="USER",           user="always_deny"),
-    "full-arglevel":   dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", arglevel=True),
-    "lattice-arglevel": dict(policies=ALL_TEAM_POLICIES, over=True, level="USER",           user="always_deny", arglevel=True),
-    "full-dataflow":   dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", dataflow=True),
-    "lattice-dataflow": dict(policies=ALL_TEAM_POLICIES, over=True, level="USER",           user="always_deny", dataflow=True),
-    "full-endorse":    dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", dataflow=True, endorse=True),
-    "lattice-endorse": dict(policies=ALL_TEAM_POLICIES, over=True, level="USER",           user="always_deny", dataflow=True, endorse=True),
-    "grants-feedback":         dict(policies=("grants",),      over=False, level="USER",     user="always_deny", enforce="feedback"),
-    "full-feedback":           dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",     user="always_deny", enforce="feedback"),
-    "full-dataflow-feedback":  dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",     user="always_deny", dataflow=True, enforce="feedback"),
-    "full-endorse-feedback":   dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",     user="always_deny", dataflow=True, endorse=True, enforce="feedback"),
-    "lattice-approve": dict(policies=ALL_TEAM_POLICIES, over=True,  level="USER",           user="always_approve"),
-    "lattice-public":  dict(policies=ALL_TEAM_POLICIES, over=True,  level="EXTERNAL_KNOWN", user="always_deny"),
-    "lattice-informed": dict(policies=ALL_TEAM_POLICIES, over=True, level="USER",           user="informed"),
+    "undefended":      dict(policies=("grants",),      over=True,  level="USER",           user="always_deny", gate="coarse"),
+    "grants":          dict(policies=("grants",),      over=False, level="USER",           user="always_deny", gate="coarse"),
+    "lattice":         dict(policies=ALL_TEAM_POLICIES, over=True,  level="USER",           user="always_deny", gate="coarse"),
+    "full":            dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", gate="dataflow"),
+    "full-feedback":   dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", gate="dataflow", enforce="feedback"),
+    "grants-feedback": dict(policies=("grants",),      over=False, level="USER",           user="always_deny", gate="coarse", enforce="feedback"),
+    "full-coarse":     dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", gate="coarse"),
+    "full-argument":   dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", gate="argument"),
+    "full-lever2":     dict(policies=ALL_TEAM_POLICIES, over=False, level="USER",           user="always_deny", gate="dataflow", q2=True),
+    "lattice-dataflow": dict(policies=ALL_TEAM_POLICIES, over=True, level="USER",           user="always_deny", gate="dataflow"),
+    "lattice-approve": dict(policies=ALL_TEAM_POLICIES, over=True,  level="USER",           user="always_approve", gate="coarse"),
+    "lattice-public":  dict(policies=ALL_TEAM_POLICIES, over=True,  level="EXTERNAL_KNOWN", user="always_deny", gate="coarse"),
+    "lattice-informed": dict(policies=ALL_TEAM_POLICIES, over=True, level="USER",           user="informed", gate="coarse"),
 }
 
 
@@ -75,9 +70,7 @@ def _run_one(sandbox, attack, scenario, topology, index, config, rounds, retries
     cfg = CONFIGS[config]
     os.environ["USER_POLICY"] = cfg["user"]
     os.environ["QUARANTINE_HARD_ONLY"] = "1" if cfg.get("q2") else "0"
-    os.environ["ARGUMENT_LEVEL"] = "1" if cfg.get("arglevel") else "0"
-    os.environ["DATAFLOW_LEVEL"] = "1" if cfg.get("dataflow") else "0"
-    os.environ["ENDORSEMENT"] = "1" if cfg.get("endorse") else "0"
+    os.environ["LEVEL_GATE"] = cfg.get("gate", "coarse")
     os.environ["ENFORCEMENT"] = cfg.get("enforce", "enforce")
     from llm import llm
 

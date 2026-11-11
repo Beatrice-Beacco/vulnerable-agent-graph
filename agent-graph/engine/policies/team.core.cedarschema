@@ -21,7 +21,7 @@ type ToolCallContext = {
   data_conf: Long,
   sink_clearance: Long,
 
-  agent_denied: Long,
+  denied_tools: Set<String>,
 };
 
 action "tool_call";

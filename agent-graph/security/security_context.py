@@ -27,7 +27,7 @@ class SecurityContext:
     fields: Dict[str, TaintedValue] = field(default_factory=dict)
     label: Label = field(default_factory=Label.top)
     origin: str = "unknown"
-    denied_calls: int = 0
+    denied_tools: set = field(default_factory=set)
     reads: List[TaintedValue] = field(default_factory=list)
 
     @property
@@ -77,7 +77,7 @@ class SecurityContext:
             fields=self.fields,
             label=replace(self.label, level=max(self.label.level, level)),
             origin=self.origin,
-            denied_calls=self.denied_calls,
+            denied_tools=self.denied_tools,
             reads=self.reads,
         )
 

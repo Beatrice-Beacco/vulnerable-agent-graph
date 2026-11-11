@@ -51,16 +51,16 @@ def _agent_tools(spec_agent, resolver: ToolResolver) -> list:
     return [resolver(name) for name in spec_agent.tools]
 
 
-def _context(name: str, contributions: list, denied: int):
+def _context(name: str, contributions: list, denied):
     fields = {f"turn_{i}": tv for i, tv in enumerate(contributions)}
     context = build_security_context(fields, origin=name)
-    context.denied_calls = denied
+    context.denied_tools = set(denied or ())
     return context
 
 
 def _turn(name: str, agent, state: TeamState) -> dict:
     print(f"\n-- {name} --")
-    context = _context(name, state["contributions"], state["denied"].get(name, 0))
+    context = _context(name, state["contributions"], state["denied"].get(name, ()))
     n_in = len(state["messages"])
     try:
         result = agent.invoke(
@@ -81,7 +81,7 @@ def _turn(name: str, agent, state: TeamState) -> dict:
     if dataflow.enabled():
         dataflow.record(labeled.value, dataflow.label_for(text))
     return {"role": "user", "content": labeled.value, "tainted": labeled,
-            "denied": context.denied_calls}
+            "denied": sorted(context.denied_tools)}
 
 
 def _acted(state: TeamState, name: str, reply: dict) -> dict:
