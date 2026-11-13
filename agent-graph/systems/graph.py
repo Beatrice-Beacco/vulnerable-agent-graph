@@ -78,8 +78,6 @@ def _turn(name: str, agent, state: TeamState) -> dict:
         event("turn_stopped", agent=name, reason="recursion limit")
         text = "(turn cut off: step limit)"
     labeled = context.labeled(f"[{name}] {text}", source=name)
-    if dataflow.enabled():
-        dataflow.record(labeled.value, dataflow.label_for(text))
     return {"role": "user", "content": labeled.value, "tainted": labeled,
             "denied": sorted(context.denied_tools)}
 

@@ -79,7 +79,7 @@ PATTERNS: Dict[str, Pattern] = {p.id: p for p in (
     _pattern("I09", INTEGRITY, BOUNDARY, IPI, "identifier that evades the ledger",
              "the attacker's identifier reaches the sink in a form the data-flow ledger cannot "
              "match: too short, or reformatted in transit",
-             "", IL, True, False),
+             IL, IL, True, False),
     _pattern("I10", INTEGRITY, BOUNDARY, INSIDER, "insider fabrication",
              "a compromised agent invents the harmful value; no untrusted source exists to taint it",
              "", "", True, True),

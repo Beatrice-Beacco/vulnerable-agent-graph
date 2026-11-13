@@ -133,7 +133,7 @@ def test_registered_predictions_hold(rows, case):
 def test_registered_totals(rows):
     table = list(rows.values())
     assert [bench.blocked(table, config) for config in (ALLOWLIST, DATAFLOW, COARSE, COARSE_USER)] \
-        == [0, 100, 115, 115]
+        == [0, 105, 115, 115]
     assert [bench.completed(table, config) for config in (ALLOWLIST, DATAFLOW, COARSE, COARSE_USER)] \
         == [130, 130, 55, 130]
     assert bench.escalations(table, COARSE_USER, BENIGN, "escalations_granted") == 75

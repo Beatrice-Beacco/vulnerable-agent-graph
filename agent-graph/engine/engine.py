@@ -51,7 +51,7 @@ class ReferenceMonitor:
             return AuthorizationDecision(False, agent, tool, str(exc))
 
         if dataflow.enabled():
-            level = dataflow.level_for(args)
+            level = dataflow.level_for(args, context.label.level)
         elif dataflow.argument_mode():
             level = context.flow_level(args)
         else:
